@@ -42,21 +42,35 @@ class AddApiScreen extends StatelessWidget {
                 ),
               ],
             ),
-            body: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildProtocolSelector(context, state, l10n),
-                  const SizedBox(height: 16),
-                  _buildHostField(context, l10n),
-                  const SizedBox(height: 16),
-                  _buildPortField(context, l10n),
-                  const SizedBox(height: 16),
-                  _buildPathField(context, l10n),
-                  const SizedBox(height: 24),
-                  _buildPreview(state, l10n),
-                ],
+            body: Center(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: Card(
+                      elevation: 4,
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildProtocolSelector(context, state, l10n),
+                            const SizedBox(height: 16),
+                            _buildHostField(context, l10n),
+                            const SizedBox(height: 16),
+                            _buildPortField(context, l10n),
+                            const SizedBox(height: 16),
+                            _buildPathField(context, l10n),
+                            const SizedBox(height: 24),
+                            _buildPreview(state, l10n),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           );

@@ -70,16 +70,17 @@ class _SMTPConfigurationScreenState extends State<SMTPConfigurationScreen> {
             appBar: AppBar(
               title: Text(l10n.smtpConfiguration),
               actions: [
-                ElevatedButton(
+                IconButton(
+                  tooltip: l10n.save,
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
                       _formKey.currentState!.save();
                     }
                   },
-                  child: Text(l10n.save),
+                  icon: const Icon(Icons.save),
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton(
+                IconButton(
+                  tooltip: l10n.testConnection,
                   onPressed: () {
                     context
                         .read<SmtpConfigurationBloc>()
@@ -93,34 +94,48 @@ class _SMTPConfigurationScreenState extends State<SMTPConfigurationScreen> {
                           useSsl: true,
                         ));
                   },
-                  child: Text(l10n.testConnection),
+                  icon: const Icon(Icons.send_outlined),
                 ),
+                const SizedBox(width: 8),
               ],
             ),
             body: Padding(
               padding: const EdgeInsets.all(16.0),
-              child: SmtpConfigurationForm(
-                formKey: _formKey,
-                onSaveValues: (host, port, username, password, useSSL,
-                    senderEmail, senderName, requireAuth) {
-                  context.read<SmtpConfigurationBloc>().add(
-                        SubmitSmtpConfigurationEvent(
-                          adminName: widget.adminName,
-                          adminFirstName: widget.adminFirstName,
-                          adminEmail: widget.adminEmail,
-                          adminPassword: widget.adminPassword,
-                          apiUrl: widget.apiUrl,
-                          host: host,
-                          port: port,
-                          username: username,
-                          password: password,
-                          useSSL: useSSL,
-                          senderEmail: senderEmail,
-                          senderName: senderName,
-                          requireAuth: requireAuth,
+              child: Center(
+                child: SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: Card(
+                      elevation: 4,
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: SmtpConfigurationForm(
+                          formKey: _formKey,
+                          onSaveValues: (host, port, username, password, useSSL,
+                              senderEmail, senderName, requireAuth) {
+                            context.read<SmtpConfigurationBloc>().add(
+                                  SubmitSmtpConfigurationEvent(
+                                    adminName: widget.adminName,
+                                    adminFirstName: widget.adminFirstName,
+                                    adminEmail: widget.adminEmail,
+                                    adminPassword: widget.adminPassword,
+                                    apiUrl: widget.apiUrl,
+                                    host: host,
+                                    port: port,
+                                    username: username,
+                                    password: password,
+                                    useSSL: useSSL,
+                                    senderEmail: senderEmail,
+                                    senderName: senderName,
+                                    requireAuth: requireAuth,
+                                  ),
+                                );
+                          },
                         ),
-                      );
-                },
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           );

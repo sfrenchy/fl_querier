@@ -87,75 +87,89 @@ class _AdminConfigurationScreenState extends State<AdminConfigurationScreen> {
             ),
             body: Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: InputDecoration(
-                      labelText: l10n.name,
-                      border: const OutlineInputBorder(),
+              child: Center(
+                child: SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: Card(
+                      elevation: 4,
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextFormField(
+                              controller: _nameController,
+                              decoration: InputDecoration(
+                                labelText: l10n.name,
+                                border: const OutlineInputBorder(),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _firstNameController,
+                              decoration: InputDecoration(
+                                labelText: l10n.firstName,
+                                border: const OutlineInputBorder(),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _emailController,
+                              decoration: InputDecoration(
+                                labelText: l10n.email,
+                                border: const OutlineInputBorder(),
+                                errorText: _emailController.text.isNotEmpty &&
+                                        !Validators.isValidEmail(_emailController.text)
+                                    ? l10n.validEmail
+                                    : null,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: true,
+                              decoration: InputDecoration(
+                                labelText: l10n.password,
+                                border: const OutlineInputBorder(),
+                                helperText: l10n.passwordRequirements,
+                                errorText: _passwordController.text.isNotEmpty
+                                    ? Validators.getPasswordError(
+                                        _passwordController.text)
+                                    : null,
+                              ),
+                              validator: (value) =>
+                                  Validators.getPasswordError(value ?? ''),
+                              autovalidateMode: AutovalidateMode.onUserInteraction,
+                            ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed:
+                                    (state is! AdminConfigurationLoading && _isFormValid)
+                                        ? () {
+                                            context.read<AdminConfigurationBloc>().add(
+                                                  SubmitConfigurationEvent(
+                                                    name: _nameController.text,
+                                                    firstName: _firstNameController.text,
+                                                    email: _emailController.text,
+                                                    password: _passwordController.text,
+                                                  ),
+                                                );
+                                          }
+                                        : null,
+                                child: state is AdminConfigurationLoading
+                                    ? const CircularProgressIndicator()
+                                    : Text(l10n.next),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _firstNameController,
-                    decoration: InputDecoration(
-                      labelText: l10n.firstName,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: InputDecoration(
-                      labelText: l10n.email,
-                      border: const OutlineInputBorder(),
-                      errorText: _emailController.text.isNotEmpty &&
-                              !Validators.isValidEmail(_emailController.text)
-                          ? l10n.validEmail
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: l10n.password,
-                      border: const OutlineInputBorder(),
-                      helperText: l10n.passwordRequirements,
-                      errorText: _passwordController.text.isNotEmpty
-                          ? Validators.getPasswordError(
-                              _passwordController.text)
-                          : null,
-                    ),
-                    validator: (value) =>
-                        Validators.getPasswordError(value ?? ''),
-                    autovalidateMode: AutovalidateMode.onUserInteraction,
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed:
-                          (state is! AdminConfigurationLoading && _isFormValid)
-                              ? () {
-                                  context.read<AdminConfigurationBloc>().add(
-                                        SubmitConfigurationEvent(
-                                          name: _nameController.text,
-                                          firstName: _firstNameController.text,
-                                          email: _emailController.text,
-                                          password: _passwordController.text,
-                                        ),
-                                      );
-                                }
-                              : null,
-                      child: state is AdminConfigurationLoading
-                          ? const CircularProgressIndicator()
-                          : Text(l10n.next),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           );
