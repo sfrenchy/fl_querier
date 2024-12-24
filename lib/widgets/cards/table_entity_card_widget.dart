@@ -121,8 +121,29 @@ class TableEntityCardWidget extends BaseCardWidget {
   @override
   Widget buildCardContent(BuildContext context) {
     final tableCard = card as TableEntityCard;
+    
+    // Ajouter des logs de débogage
+    debugPrint('Configuration: ${tableCard.configuration}');
+    debugPrint('Columns in config: ${tableCard.configuration['columns']}');
+    debugPrint('Current columns: ${tableCard.columns}');
+
+    // Modifier la condition hasConfig pour ne vérifier que le contexte et l'entité
     final hasConfig = tableCard.configuration['context'] != null &&
         tableCard.configuration['entity'] != null;
+
+    // Initialiser les colonnes à partir du schéma si disponible
+    if (tableCard.columns.isEmpty && tableCard.configuration['entitySchema'] != null) {
+      final schema = tableCard.configuration['entitySchema'] as Map<String, dynamic>;
+      final properties = (schema['Properties'] as List).cast<Map<String, dynamic>>();
+      
+      tableCard.columns = properties.map((prop) => {
+        'key': prop['Name'],
+        'label': {'en': prop['Name'], 'fr': prop['Name']},
+        'type': prop['Type'],
+        'visible': true,
+        'alignment': _getDefaultAlignment(prop['Type'] as String),
+      }).toList();
+    }
 
     // Ne charger les données que si on a une configuration
     if (hasConfig) {
@@ -134,8 +155,8 @@ class TableEntityCardWidget extends BaseCardWidget {
       child: StreamBuilder<(List<Map<String, dynamic>>, int)>(
         stream: _dataController.stream,
         builder: (context, snapshot) {
-          // Si pas de configuration, afficher directement le message
-          if (!hasConfig) {
+          // Si pas de configuration ou pas de colonnes, afficher un message
+          if (!hasConfig || tableCard.columns.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -155,6 +176,15 @@ class TableEntityCardWidget extends BaseCardWidget {
           final (items, _) = snapshot.data!;
           if (items.isEmpty) {
             return const Center(child: Text('Aucune donnée'));
+          }
+
+          // Vérifier qu'il y a au moins une colonne visible
+          final visibleColumns = tableCard.columns
+              .where((column) => column['visible'] == true)
+              .toList();
+          
+          if (visibleColumns.isEmpty) {
+            return const Center(child: Text('No visible columns'));
           }
 
           // Création des controllers dans le builder
@@ -297,6 +327,19 @@ class TableEntityCardWidget extends BaseCardWidget {
         return Alignment.center;
       default:
         return Alignment.centerLeft; // Alignement par défaut
+    }
+  }
+
+  String _getDefaultAlignment(String type) {
+    switch (type) {
+      case 'String':
+        return 'left';
+      case 'Int32':
+      case 'Decimal':
+      case 'Double':
+        return 'right';
+      default:
+        return 'left';
     }
   }
 }

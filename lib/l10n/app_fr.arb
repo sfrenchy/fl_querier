@@ -286,5 +286,7 @@
     "parameterName": "Nom du paramètre",
     "parameterValue": "Valeur",
     "addParameter": "Ajouter un paramètre",
-    "queryBuilder": "Constructeur de requêtes"
+    "queryBuilder": "Constructeur de requêtes",
+    "query": "Requête",
+    "selectQuery": "Sélectionner une requête"
 } 

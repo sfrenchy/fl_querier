@@ -287,5 +287,7 @@
     "parameterName": "Parameter Name",
     "parameterValue": "Value",
     "addParameter": "Add Parameter",
-    "queryBuilder": "Query Builder"
+    "queryBuilder": "Query Builder",
+    "query": "Query",
+    "selectQuery": "Select Query"
 } 

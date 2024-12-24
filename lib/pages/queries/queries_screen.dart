@@ -8,14 +8,23 @@ import 'bloc/queries_event.dart';
 import 'bloc/queries_state.dart';
 import 'sql_query_form_screen.dart';
 
-class QueriesScreen extends StatelessWidget {
+class QueriesScreen extends StatefulWidget {
   const QueriesScreen({super.key});
+
+  @override
+  State<QueriesScreen> createState() => _QueriesScreenState();
+}
+
+class _QueriesScreenState extends State<QueriesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<QueriesBloc>().add(LoadQueries());
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-
-    context.read<QueriesBloc>().add(LoadQueries());
 
     return Scaffold(
       appBar: AppBar(
@@ -29,62 +38,70 @@ class QueriesScreen extends StatelessWidget {
                 MaterialPageRoute(
                   builder: (context) => const SQLQueryFormScreen(),
                 ),
-              );
+              ).then((_) => context.read<QueriesBloc>().add(LoadQueries()));
             },
           ),
         ],
       ),
-      body: BlocBuilder<QueriesBloc, QueriesState>(
-        builder: (context, state) {
-          if (state is QueriesLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (state is QueriesError) {
-            return Center(child: Text('Error: ${state.message}'));
-          }
-
-          if (state is QueriesLoaded) {
-            return Container(
-              margin: const EdgeInsets.all(8.0),
-              child: ListView.builder(
-                itemCount: state.queries.length,
-                itemBuilder: (context, index) {
-                  final query = state.queries[index];
-                  return Card(
-                    child: ListTile(
-                      title: Text(query.name),
-                      subtitle: Text(query.description),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      SQLQueryFormScreen(query: query),
-                                ),
-                              );
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete),
-                            onPressed: () => _confirmDelete(context, query),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            );
-          }
-
-          return const SizedBox();
+      body: RefreshIndicator(
+        onRefresh: () async {
+          context.read<QueriesBloc>().add(LoadQueries());
         },
+        child: BlocBuilder<QueriesBloc, QueriesState>(
+          builder: (context, state) {
+            if (state is QueriesLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (state is QueriesError) {
+              return Center(child: Text('Error: ${state.message}'));
+            }
+
+            if (state is QueriesLoaded) {
+              return Container(
+                margin: const EdgeInsets.all(8.0),
+                child: ListView.builder(
+                  itemCount: state.queries.length,
+                  itemBuilder: (context, index) {
+                    final query = state.queries[index];
+                    return Card(
+                      child: ListTile(
+                        title: Text(query.name),
+                        subtitle: Text(query.description),
+                        trailing: SizedBox(
+                          width: 96,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          SQLQueryFormScreen(query: query),
+                                    ),
+                                  ).then((_) => context.read<QueriesBloc>().add(LoadQueries()));
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                onPressed: () => _confirmDelete(context, query),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              );
+            }
+
+            return const SizedBox();
+          },
+        ),
       ),
     );
   }

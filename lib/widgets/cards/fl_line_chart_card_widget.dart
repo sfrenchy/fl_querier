@@ -84,41 +84,45 @@ class _FLLineChartContentState extends State<_FLLineChartContent> {
   Future<void> _loadData() async {
     try {
       final config = widget.card.configuration;
-      if (config['dataSourceType'] == 'DataSourceType.api') {
-        // TODO: Implémenter le chargement depuis l'API
-      } else {
-        final apiClient = context.read<ApiClient>();
+      final apiClient = this.context.read<ApiClient>();
 
-        // Utiliser la pagination si elle est activée
-        final bool isPaginated = config['pagination'] ?? false;
-        final int pageSize =
-            isPaginated ? (config['pageSize'] as int? ?? _defaultPageSize) : 0;
-        final int pageNumber = isPaginated ? _currentPage : 0;
-
-        final (data, total) = await apiClient.getEntityData(
-          config['dataContext'] as String,
-          config['entity'] as String,
-          pageNumber: pageNumber,
-          pageSize: pageSize,
-          orderBy: config['orderBy'] as String? ?? '',
-        );
-
-        // Mettre à jour le total et envoyer l'état de pagination
-        _totalItems = total;
-        if (isPaginated) {
-          _paginationController.add((_currentPage, total));
-        }
-
-        // Restructurer les données par colonne
-        final Map<String, List<dynamic>> columnData = {};
-        for (var row in data) {
-          for (var entry in row.entries) {
-            columnData.putIfAbsent(entry.key, () => []).add(entry.value);
-          }
-        }
-
-        setState(() => _data = columnData);
+      // Vérifier que nous avons un contexte et une entité
+      final context = config['context'] as String?;
+      final entity = config['entity'] as String?;
+      
+      if (context == null || entity == null) {
+        debugPrint('Context or entity is null');
+        return;
       }
+
+      // Utiliser la pagination si elle est activée
+      final bool isPaginated = config['pagination'] ?? false;
+      final int pageSize = isPaginated ? (config['pageSize'] as int? ?? _defaultPageSize) : 0;
+      final int pageNumber = isPaginated ? _currentPage : 0;
+
+      final (data, total) = await apiClient.getEntityData(
+        context,
+        entity,
+        pageNumber: pageNumber,
+        pageSize: pageSize,
+        orderBy: config['orderBy'] as String? ?? '',
+      );
+
+      // Mettre à jour le total et envoyer l'état de pagination
+      _totalItems = total;
+      if (isPaginated) {
+        _paginationController.add((_currentPage, total));
+      }
+
+      // Restructurer les données par colonne
+      final Map<String, List<dynamic>> columnData = {};
+      for (var row in data) {
+        for (var entry in row.entries) {
+          columnData.putIfAbsent(entry.key, () => []).add(entry.value);
+        }
+      }
+
+      setState(() => _data = columnData);
     } catch (e) {
       debugPrint('Error loading data: $e');
     }
