@@ -22,6 +22,7 @@ class SQLQuery {
   final Map<String, dynamic> parameters;
   final int? connectionId;
   final DBConnection? connection;
+  final String? outputDescription;
 
   SQLQuery({
     required this.id,
@@ -35,6 +36,7 @@ class SQLQuery {
     required this.parameters,
     this.connectionId,
     this.connection,
+    this.outputDescription,
   });
 
   factory SQLQuery.fromJson(Map<String, dynamic> json) {
@@ -73,6 +75,7 @@ class SQLQuery {
         connection: connection != null
             ? DBConnection.fromJson(Map<String, dynamic>.from(connection))
             : null,
+        outputDescription: json['OutputDescription']?.toString() ?? json['outputDescription']?.toString(),
       );
     } catch (e, stackTrace) {
       print('Error parsing SQLQuery: $e\n$stackTrace');
@@ -91,5 +94,6 @@ class SQLQuery {
         'IsPublic': isPublic,
         'Parameters': parameters,
         'ConnectionId': connectionId,
+        'OutputDescription': outputDescription,
       };
 }

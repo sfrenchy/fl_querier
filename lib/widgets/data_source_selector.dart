@@ -24,21 +24,57 @@ class DataSourceConfiguration {
     this.entitySchema,
   });
 
+  Future<(List<dynamic>, int)> fetchData(
+    ApiClient apiClient, {
+    int pageNumber = 1,
+    int pageSize = 0,
+    String orderBy = '',
+  }) async {
+    switch (type) {
+      case DataSourceType.api:
+        return ([], 0);
+
+      case DataSourceType.entity:
+        if (context == null || entity == null) return ([], 0);
+        return apiClient.getEntityData(
+          context!,
+          entity!,
+          pageNumber: pageNumber,
+          pageSize: pageSize,
+          orderBy: orderBy,
+        );
+
+      case DataSourceType.query:
+        if (query == null) return ([], 0);
+        debugPrint('Executing query: $query');
+        return apiClient.executeQuery(
+          query!,
+          pageNumber: pageNumber,
+          pageSize: pageSize,
+        );
+    }
+  }
+
   Map<String, dynamic> toJson() => {
         'type': type.toString(),
-        'apiEndpoint': apiEndpoint,
+        'query': query,
         'context': context,
         'entity': entity,
-        'query': query,
-        'entitySchema': entitySchema?.toJson(),
       };
 
   factory DataSourceConfiguration.fromJson(Map<String, dynamic> json) {
+    // Déterminer le type en fonction des données présentes
+    DataSourceType type;
+    if (json['query'] != null) {
+      type = DataSourceType.query;
+    } else if (json['context'] != null && json['entity'] != null) {
+      type = DataSourceType.entity;
+    } else {
+      type = DataSourceType.api;
+    }
+
     return DataSourceConfiguration(
-      type: DataSourceType.values.firstWhere(
-        (e) => e.toString() == json['type'],
-        orElse: () => DataSourceType.api,
-      ),
+      type: type,
       apiEndpoint: json['apiEndpoint'],
       context: json['context'],
       entity: json['entity'],
@@ -68,6 +104,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
   late DataSourceConfiguration _config;
   List<String> _contexts = [];
   List<EntitySchema> _entities = [];
+  List<String> _queries = [];
   bool _isLoading = true;
   DataContextService? _dataContextService;
 
@@ -76,6 +113,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
     super.initState();
     _config = widget.initialConfiguration ??
         DataSourceConfiguration(type: DataSourceType.api);
+    _loadQueries();
   }
 
   @override
@@ -122,6 +160,20 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
           SnackBar(content: Text('Error loading entities: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _loadQueries() async {
+    try {
+      final apiClient = context.read<ApiClient>();
+      final queries = await apiClient.getSQLQueries();
+      if (mounted) {
+        setState(() {
+          _queries = queries.map((q) => q.name).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading queries: $e');
     }
   }
 
@@ -260,12 +312,17 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
 
       case DataSourceType.query:
         return DropdownButtonFormField<String>(
-          value: _config.query,
           decoration: InputDecoration(
             labelText: l10n.selectQuery,
             border: const OutlineInputBorder(),
           ),
-          items: const [], // TODO: Implement query list
+          value: _config.query,
+          items: _queries.map((query) {
+            return DropdownMenuItem(
+              value: query,
+              child: Text(query),
+            );
+          }).toList(),
           onChanged: (value) {
             if (value != null) {
               _config = DataSourceConfiguration(

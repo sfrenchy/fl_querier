@@ -10,6 +10,7 @@ import 'package:querier/api/api_client.dart';
 import 'package:provider/provider.dart';
 import 'package:querier/widgets/cards/base_card_widget.dart';
 import 'package:intl/intl.dart';
+import 'package:querier/widgets/data_source_selector.dart';
 
 class FLLineChartCardWidget extends BaseCardWidget {
   const FLLineChartCardWidget({
@@ -83,34 +84,18 @@ class _FLLineChartContentState extends State<_FLLineChartContent> {
 
   Future<void> _loadData() async {
     try {
-      final config = widget.card.configuration;
-      final apiClient = this.context.read<ApiClient>();
+      final config = DataSourceConfiguration.fromJson(widget.card.configuration);
+      final apiClient = context.read<ApiClient>();
 
-      // Vérifier que nous avons un contexte et une entité
-      final context = config['context'] as String?;
-      final entity = config['entity'] as String?;
-      
-      if (context == null || entity == null) {
-        debugPrint('Context or entity is null');
-        return;
-      }
-
-      // Utiliser la pagination si elle est activée
-      final bool isPaginated = config['pagination'] ?? false;
-      final int pageSize = isPaginated ? (config['pageSize'] as int? ?? _defaultPageSize) : 0;
-      final int pageNumber = isPaginated ? _currentPage : 0;
-
-      final (data, total) = await apiClient.getEntityData(
-        context,
-        entity,
-        pageNumber: pageNumber,
-        pageSize: pageSize,
-        orderBy: config['orderBy'] as String? ?? '',
+      final (data, total) = await config.fetchData(
+        apiClient,
+        pageNumber: _currentPage,
+        pageSize: widget.card.configuration['pageSize'] as int? ?? _defaultPageSize,
       );
 
       // Mettre à jour le total et envoyer l'état de pagination
       _totalItems = total;
-      if (isPaginated) {
+      if (widget.card.configuration['pagination'] ?? false) {
         _paginationController.add((_currentPage, total));
       }
 
@@ -224,10 +209,10 @@ class _FLLineChartContentState extends State<_FLLineChartContent> {
 
       final property = entitySchema.properties.firstWhere(
         (p) => p.name == fieldName,
-        orElse: () => EntityProperty(
+        orElse: () => PropertyDefinition(
           name: fieldName,
           type: 'String',
-          options: const [],
+          options: [],
         ),
       );
 
