@@ -63,21 +63,23 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           _buildApiUrlDropdown(context, state),
                           const SizedBox(height: 24),
-                          if (state.isConfigured) ...[
-                            _buildEmailField(context),
-                            const SizedBox(height: 16),
-                            _buildPasswordField(context),
-                            const SizedBox(height: 32),
-                            _buildLoginButton(context, state),
-                          ] else if (state.selectedUrl.isNotEmpty) ...[
-                            const SizedBox(height: 24),
-                            _buildConfigureButton(context),
+                          if (state.selectedUrl.isNotEmpty) ...[
+                            if (state.isLoading)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24),
+                                child: CircularProgressIndicator(),
+                              )
+                            else if (state.isConfigured) ...[
+                              _buildEmailField(context),
+                              const SizedBox(height: 16),
+                              _buildPasswordField(context),
+                              const SizedBox(height: 32),
+                              _buildLoginButton(context, state),
+                            ] else ...[
+                              const SizedBox(height: 24),
+                              _buildConfigureButton(context),
+                            ],
                           ],
-                          if (state.isLoading)
-                            const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: CircularProgressIndicator(),
-                            ),
                         ],
                       ),
                     ),
