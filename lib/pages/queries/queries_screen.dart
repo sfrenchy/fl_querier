@@ -67,7 +67,7 @@ class _QueriesScreenState extends State<QueriesScreen> {
                     return Card(
                       child: ListTile(
                         title: Text(query.name),
-                        subtitle: Text(query.description),
+                        subtitle: Text(query.description!),
                         trailing: SizedBox(
                           width: 96,
                           child: Row(

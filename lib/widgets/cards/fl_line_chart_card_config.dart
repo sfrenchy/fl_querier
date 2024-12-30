@@ -8,6 +8,7 @@ import 'package:querier/api/api_client.dart';
 import 'package:provider/provider.dart';
 import 'package:querier/widgets/data_source_selector.dart';
 import 'package:querier/utils/validators.dart';
+import 'dart:convert';
 
 class FLLineChartCardConfig extends StatefulWidget {
   final DynamicCard card;
@@ -27,10 +28,13 @@ class _FLLineChartCardConfigState extends State<FLLineChartCardConfig> {
   late final Map<String, dynamic> config;
   Map<String, dynamic>? previewData;
   late DataSourceConfiguration _dataSourceConfig;
+  final _formKey = GlobalKey<FormState>();
+  late final ApiClient _apiClient;
 
   @override
   void initState() {
     super.initState();
+    _apiClient = context.read<ApiClient>();
     config = Map<String, dynamic>.from(widget.card.configuration);
     
     // Initialiser la configuration par défaut
@@ -65,6 +69,44 @@ class _FLLineChartCardConfigState extends State<FLLineChartCardConfig> {
     widget.onConfigurationChanged(newConfig);
   }
 
+  Future<List<PropertyDefinition>> _getAvailableFields() async {
+    final dataContext = _dataSourceConfig.context;
+    final entity = _dataSourceConfig.entity;
+    
+    if (dataContext == null || entity == null) return [];
+
+    if (dataContext == 'Query') {
+      // Cas spécial pour les requêtes SQL
+      final query = await _apiClient.getSQLQuery(int.parse(entity));
+      if (query.outputDescription != null) {
+        final schema = EntitySchema.fromJson(
+          jsonDecode(query.outputDescription!) as Map<String, dynamic>
+        );
+        return schema.properties;
+      }
+    } else {
+      // Cas normal pour les entités
+      final schema = await _apiClient.getEntity(dataContext, entity);
+      if (schema != null) {
+        return EntitySchema.fromJson(schema).properties;
+      }
+    }
+    return [];
+  }
+
+  Future<List<String>> _getNumericFields() async {
+    final fields = await _getAvailableFields();
+    return fields
+        .where((prop) => _isNumericType(prop.type))
+        .map((prop) => prop.name)
+        .toList();
+  }
+
+  Future<List<String>> _getAllFields() async {
+    final fields = await _getAvailableFields();
+    return fields.map((prop) => prop.name).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -82,12 +124,16 @@ class _FLLineChartCardConfigState extends State<FLLineChartCardConfig> {
               children: [
                 DataSourceSelector(
                   initialConfiguration: _dataSourceConfig,
-                  onConfigurationChanged: (newConfig) {
+                  onConfigurationChanged: (newConfig) async {
                     setState(() {
                       _dataSourceConfig = newConfig;
                     });
+
                     final updatedConfig = Map<String, dynamic>.from(config);
                     updatedConfig.addAll(newConfig.toJson());
+                    if (newConfig.entitySchema != null) {
+                      updatedConfig['entitySchema'] = newConfig.entitySchema!.toJson();
+                    }
                     updateConfig(updatedConfig);
                   },
                 ),
@@ -151,21 +197,29 @@ class _FLLineChartCardConfigState extends State<FLLineChartCardConfig> {
                   },
                 ),
                 // Ajouter le dropdown pour la colonne des libellés X
-                DropdownButtonFormField<String>(
-                  decoration: InputDecoration(
-                    labelText: l10n.xAxisLabelField,
-                  ),
-                  value: config['xAxisLabelField'] as String?,
-                  items: _getAllFields().map((field) {
-                    return DropdownMenuItem(
-                      value: field,
-                      child: Text(field),
+                FutureBuilder<List<String>>(
+                  future: _getAllFields(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const CircularProgressIndicator();
+                    }
+                    return DropdownButtonFormField<String>(
+                      decoration: InputDecoration(
+                        labelText: l10n.xAxisLabelField,
+                      ),
+                      value: config['xAxisLabelField'] as String?,
+                      items: snapshot.data!.map((field) {
+                        return DropdownMenuItem(
+                          value: field,
+                          child: Text(field),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        final newConfig = Map<String, dynamic>.from(config);
+                        newConfig['xAxisLabelField'] = value;
+                        updateConfig(newConfig);
+                      },
                     );
-                  }).toList(),
-                  onChanged: (value) {
-                    final newConfig = Map<String, dynamic>.from(config);
-                    newConfig['xAxisLabelField'] = value;
-                    updateConfig(newConfig);
                   },
                 ),
 
@@ -305,12 +359,6 @@ class _FLLineChartCardConfigState extends State<FLLineChartCardConfig> {
     final numericFields = _getNumericFields();
     final currentValue = line['dataField'] as String?;
 
-    // Vérifier si la valeur actuelle existe dans les champs numériques
-    final validValue =
-        currentValue != null && numericFields.contains(currentValue)
-            ? currentValue
-            : null;
-
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       child: Padding(
@@ -353,30 +401,38 @@ class _FLLineChartCardConfigState extends State<FLLineChartCardConfig> {
                 ),
               ],
             ),
-            DropdownButtonFormField<String>(
-              decoration: InputDecoration(
-                labelText: l10n.dataField,
-                helperText: l10n.jsonFieldPath,
-              ),
-              value: validValue,
-              items: numericFields.map((field) {
-                return DropdownMenuItem(
-                  value: field,
-                  child: Text(field),
-                );
-              }).toList(),
-              onChanged: (value) {
-                final newConfig = Map<String, dynamic>.from(config);
-                final lines =
-                    List<Map<String, dynamic>>.from(newConfig['lines'] ?? []);
-                final lineIndex =
-                    lines.indexWhere((l) => l['id'] == line['id']);
-                if (lineIndex != -1) {
-                  lines[lineIndex] = Map<String, dynamic>.from(line)
-                    ..['dataField'] = value;
-                  newConfig['lines'] = lines;
-                  updateConfig(newConfig);
+            FutureBuilder<List<String>>(
+              future: _getNumericFields(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const CircularProgressIndicator();
                 }
+                return DropdownButtonFormField<String>(
+                  decoration: InputDecoration(
+                    labelText: l10n.dataField,
+                    helperText: l10n.jsonFieldPath,
+                  ),
+                  value: line['dataField'] as String?,
+                  items: snapshot.data!.map((field) {
+                    return DropdownMenuItem(
+                      value: field,
+                      child: Text(field),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    final newConfig = Map<String, dynamic>.from(config);
+                    final lines =
+                        List<Map<String, dynamic>>.from(newConfig['lines'] ?? []);
+                    final lineIndex =
+                        lines.indexWhere((l) => l['id'] == line['id']);
+                    if (lineIndex != -1) {
+                      lines[lineIndex] = Map<String, dynamic>.from(line)
+                        ..['dataField'] = value;
+                      newConfig['lines'] = lines;
+                      updateConfig(newConfig);
+                    }
+                  },
+                );
               },
             ),
             Row(
@@ -431,15 +487,6 @@ class _FLLineChartCardConfigState extends State<FLLineChartCardConfig> {
     );
   }
 
-  List<String> _getNumericFields() {
-    if (_dataSourceConfig.entitySchema == null) return [];
-
-    return _dataSourceConfig.entitySchema!.properties
-        .where((prop) => _isNumericType(prop.type))
-        .map((prop) => prop.name)
-        .toList();
-  }
-
   bool _isNumericType(String type) {
     return [
       'Int32',
@@ -453,14 +500,6 @@ class _FLLineChartCardConfigState extends State<FLLineChartCardConfig> {
       'Double?',
       'Single?'
     ].contains(type);
-  }
-
-  List<String> _getAllFields() {
-    if (_dataSourceConfig.entitySchema == null) return [];
-    
-    return _dataSourceConfig.entitySchema!.properties
-        .map((prop) => prop.name)
-        .toList();
   }
 
   Widget _buildLinesConfiguration(AppLocalizations l10n) {
@@ -512,16 +551,24 @@ class _FLLineChartCardConfigState extends State<FLLineChartCardConfig> {
               },
             ),
             const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              decoration: InputDecoration(labelText: l10n.dataField),
-              value: line['dataField'] as String?,
-              items: _getNumericFields().map((field) {
-                return DropdownMenuItem(value: field, child: Text(field));
-              }).toList(),
-              onChanged: (value) {
-                final newConfig = Map<String, dynamic>.from(config);
-                (newConfig['lines'] as List<dynamic>)[index]['dataField'] = value;
-                updateConfig(newConfig);
+            FutureBuilder<List<String>>(
+              future: _getNumericFields(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const CircularProgressIndicator();
+                }
+                return DropdownButtonFormField<String>(
+                  decoration: InputDecoration(labelText: l10n.dataField),
+                  value: line['dataField'] as String?,
+                  items: snapshot.data!.map((field) {
+                    return DropdownMenuItem(value: field, child: Text(field));
+                  }).toList(),
+                  onChanged: (value) {
+                    final newConfig = Map<String, dynamic>.from(config);
+                    (newConfig['lines'] as List<dynamic>)[index]['dataField'] = value;
+                    updateConfig(newConfig);
+                  },
+                );
               },
             ),
             const SizedBox(height: 8),

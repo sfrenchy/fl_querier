@@ -233,6 +233,30 @@ class _FLLineChartContentState extends State<_FLLineChartContent> {
   }
 
   Widget _buildChart() {
+    // Vérifier si la configuration est valide
+    if (!_isConfigurationValid()) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(
+              Icons.settings,
+              size: 40,
+              color: Colors.grey,
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Configuration required',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     if (_data == null) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -281,47 +305,30 @@ class _FLLineChartContentState extends State<_FLLineChartContent> {
                 widget.card.configuration['xAxisShowGrid'] ?? true,
           ),
           titlesData: FlTitlesData(
-            bottomTitles: AxisTitles(
-              axisNameWidget:
-                  Text(widget.card.configuration['xAxisLabel'] ?? ''),
+            leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 30,
-                interval: 1,
-                getTitlesWidget: (value, meta) {
-                  if (xAxisField != null && _data!.containsKey(xAxisField)) {
-                    final index = value.toInt();
-                    final labels = _data![xAxisField] as List;
-                    if (index >= 0 && index < labels.length) {
-                      return RotatedBox(
-                        quarterTurns: 1,
-                        child: FutureBuilder<String>(
-                          future: _formatValue(labels[index], xAxisField),
-                          builder: (context, snapshot) {
-                            return Text(
-                              snapshot.data ?? value.toString(),
-                              style: const TextStyle(fontSize: 9),
-                            );
-                          },
-                        ),
-                      );
-                    }
-                  }
-                  return Text(value.toInt().toString());
-                },
+                interval: max(1.0, (maxY - minY) / 5), // Assurer un intervalle minimum de 1
+                reservedSize: 40,
+                getTitlesWidget: (value, meta) => Text(
+                  value.toStringAsFixed(1),
+                  style: const TextStyle(fontSize: 12),
+                ),
               ),
             ),
-            leftTitles: AxisTitles(
-              axisNameWidget:
-                  Text(widget.card.configuration['yAxisLabel'] ?? ''),
+            bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 40,
-                interval: ((maxY - minY) / 5).roundToDouble(), // 5 intervalles
+                interval: 1,
                 getTitlesWidget: (value, meta) {
+                  if (xAxisField == null || 
+                      !_data!.containsKey(xAxisField) || 
+                      value.toInt() >= _data![xAxisField]!.length) {
+                    return const Text('');
+                  }
                   return Text(
-                    value.toStringAsFixed(1),
-                    style: const TextStyle(fontSize: 10),
+                    _data![xAxisField]![value.toInt()].toString(),
+                    style: const TextStyle(fontSize: 12),
                   );
                 },
               ),
@@ -387,5 +394,21 @@ class _FLLineChartContentState extends State<_FLLineChartContent> {
         belowBarData: BarAreaData(show: false),
       );
     }).toList();
+  }
+
+  bool _isConfigurationValid() {
+    final config = widget.card.configuration;
+    final dataSourceConfig = DataSourceConfiguration.fromJson(config);
+
+    // Vérifier que nous avons un schéma d'entité
+    if (dataSourceConfig.entitySchema == null) return false;
+
+    // Vérifier que nous avons au moins une ligne configurée
+    if ((config['lines'] as List?)?.isEmpty ?? true) return false;
+
+    // Vérifier que nous avons un champ pour l'axe X
+    if (config['xAxisLabelField'] == null) return false;
+
+    return true;
   }
 }

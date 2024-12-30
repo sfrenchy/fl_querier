@@ -24,17 +24,18 @@ class DBConnection {
   });
 
   factory DBConnection.fromJson(Map<String, dynamic> json) {
+    final id = json['Id'];
     return DBConnection(
-      id: json['Id'] as int,
-      name: json['Name'],
+      id: id is int ? id : int.parse(id.toString()),
+      name: json['Name'].toString(),
       host: '',
       port: 0,
       database: '',
       username: '',
-      type: json['ConnectionType'],
+      type: json['ConnectionType'].toString(),
       isActive: true,
-      connectionString: json['ConnectionString'],
-      apiRoute: json['ApiRoute'],
+      connectionString: json['ConnectionString'].toString(),
+      apiRoute: json['ApiRoute'].toString(),
     );
   }
 }

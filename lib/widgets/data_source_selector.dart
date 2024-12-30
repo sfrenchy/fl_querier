@@ -4,6 +4,7 @@ import 'package:querier/api/api_client.dart';
 import 'package:querier/models/entity_schema.dart';
 import 'package:querier/services/data_context_service.dart';
 import 'package:provider/provider.dart';
+import 'dart:convert';
 
 enum DataSourceType { api, entity, query }
 
@@ -65,7 +66,13 @@ class DataSourceConfiguration {
   factory DataSourceConfiguration.fromJson(Map<String, dynamic> json) {
     // Déterminer le type en fonction des données présentes
     DataSourceType type;
-    if (json['query'] != null) {
+    if (json['type'] != null) {
+      // Utiliser directement la valeur du type si elle existe
+      type = DataSourceType.values.firstWhere(
+        (e) => e.toString() == json['type'],
+        orElse: () => DataSourceType.api,
+      );
+    } else if (json['query'] != null) {
       type = DataSourceType.query;
     } else if (json['context'] != null && json['entity'] != null) {
       type = DataSourceType.entity;
@@ -75,13 +82,28 @@ class DataSourceConfiguration {
 
     return DataSourceConfiguration(
       type: type,
-      apiEndpoint: json['apiEndpoint'],
+      query: json['query'],
       context: json['context'],
       entity: json['entity'],
-      query: json['query'],
       entitySchema: json['entitySchema'] != null
           ? EntitySchema.fromJson(json['entitySchema'])
           : null,
+    );
+  }
+
+  DataSourceConfiguration copyWith({
+    DataSourceType? type,
+    String? context,
+    String? entity,
+    EntitySchema? entitySchema,
+    String? query,
+  }) {
+    return DataSourceConfiguration(
+      type: type ?? this.type,
+      context: context ?? this.context,
+      entity: entity ?? this.entity,
+      entitySchema: entitySchema ?? this.entitySchema,
+      query: query ?? this.query,
     );
   }
 }
@@ -323,13 +345,26 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
               child: Text(query),
             );
           }).toList(),
-          onChanged: (value) {
+          onChanged: (value) async {
             if (value != null) {
-              _config = DataSourceConfiguration(
-                type: DataSourceType.query,
-                query: value,
-              );
-              widget.onConfigurationChanged(_config);
+              final apiClient = context.read<ApiClient>();
+              final queries = await apiClient.getSQLQueries();
+              final selectedQuery = queries.firstWhere((q) => q.name == value);
+              
+              if (selectedQuery.outputDescription != null) {
+                final schema = EntitySchema.fromJson(
+                  jsonDecode(selectedQuery.outputDescription!) as Map<String, dynamic>
+                );
+                
+                _config = DataSourceConfiguration(
+                  type: DataSourceType.query,
+                  context: 'Query',
+                  entity: selectedQuery.id.toString(),
+                  query: value,
+                  entitySchema: schema,
+                );
+                widget.onConfigurationChanged(_config);
+              }
             }
           },
         );
