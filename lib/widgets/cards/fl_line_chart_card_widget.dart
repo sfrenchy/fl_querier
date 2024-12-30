@@ -400,17 +400,35 @@ class _FLLineChartContentState extends State<_FLLineChartContent> {
 
   bool _isConfigurationValid() {
     final config = widget.card.configuration;
-    final dataSourceConfig = DataSourceConfiguration.fromJson(config);
-
-    // Vérifier que nous avons un schéma d'entité
-    if (dataSourceConfig.entitySchema == null) return false;
+    
+    debugPrint('Configuration validation:');
+    debugPrint('Config: $config');
 
     // Vérifier que nous avons au moins une ligne configurée
-    if ((config['lines'] as List?)?.isEmpty ?? true) return false;
+    if ((config['lines'] as List?)?.isEmpty ?? true) {
+      debugPrint('- No lines configured');
+      return false;
+    }
 
     // Vérifier que nous avons un champ pour l'axe X
-    if (config['xAxisLabelField'] == null) return false;
+    if (config['xAxisLabelField'] == null) {
+      debugPrint('- No X axis field');
+      return false;
+    }
 
+    // Vérifier la source de données
+    if (config['query'] == null || config['context'] == null) {
+      debugPrint('- Missing query or context');
+      return false;
+    }
+
+    // Vérifier que nous avons un schéma d'entité
+    if (config['entitySchema'] == null) {
+      debugPrint('- No entity schema');
+      return false;
+    }
+
+    debugPrint('- All validations passed');
     return true;
   }
 }

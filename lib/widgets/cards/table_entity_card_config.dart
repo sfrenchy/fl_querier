@@ -117,20 +117,25 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
   }
 
   void _onDataSourceConfigChanged(DataSourceConfiguration newConfig) async {
+    debugPrint('New config type: ${newConfig.type.name}');
+    debugPrint('Current config: ${widget.card.configuration}');
+    
     setState(() {
       _dataSourceConfig = newConfig;
       _selectedColumns = [];
     });
 
     final updatedConfig = Map<String, dynamic>.from(widget.card.configuration);
-    
     updatedConfig['type'] = 'TableEntity';
     updatedConfig['dataSource'] = {
-      'type': newConfig.type.toString(),
+      'type': newConfig.type.name,
       'query': newConfig.query,
       'context': newConfig.context,
       'entity': newConfig.entity,
     };
+
+    debugPrint('Updated config before save: $updatedConfig');
+    widget.onConfigurationChanged(updatedConfig);
 
     if (newConfig.type == DataSourceType.query && newConfig.query != null) {
       try {
@@ -139,37 +144,30 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
         final query = queries.firstWhere((q) => q.name == newConfig.query);
         
         if (query.outputDescription != null) {
-          try {
-            final entitySchema = EntitySchema.fromJson(
-              json.decode(query.outputDescription!) as Map<String, dynamic>
-            );
-            
-            final columns = entitySchema.properties.map((prop) => {
-              'key': prop.name,
-              'label': {'en': prop.name, 'fr': prop.name},
-              'type': prop.type,
-              'alignment': _getDefaultAlignment(prop.type),
-              'visible': true,
-              'decimals': _isNumericType(prop.type) ? 0 : null,
-            }).toList();
+          final entitySchema = EntitySchema.fromJson(
+            json.decode(query.outputDescription!) as Map<String, dynamic>
+          );
+          
+          final columns = entitySchema.properties.map((prop) => {
+            'key': prop.name,
+            'label': {'en': prop.name, 'fr': prop.name},
+            'type': prop.type,
+            'alignment': _getDefaultAlignment(prop.type),
+            'visible': true,
+            'decimals': _isNumericType(prop.type) ? 0 : null,
+          }).toList();
 
-            setState(() {
-              _selectedColumns = List<Map<String, dynamic>>.from(columns);
-            });
+          setState(() {
+            _selectedColumns = List<Map<String, dynamic>>.from(columns);
+          });
 
-            updatedConfig['columns'] = columns;
-            updatedConfig['entitySchema'] = entitySchema.toJson();
-          } catch (e) {
-            debugPrint('Error parsing query description: $e');
-          }
+          updatedConfig['columns'] = columns;
+          updatedConfig['entitySchema'] = entitySchema.toJson();
         }
       } catch (e) {
         debugPrint('Error loading query: $e');
       }
     }
-
-    debugPrint('Updated config: $updatedConfig');
-    widget.onConfigurationChanged(updatedConfig);
   }
 
   @override
