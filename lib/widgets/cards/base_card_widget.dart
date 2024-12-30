@@ -28,6 +28,28 @@ abstract class BaseCardWidget extends StatelessWidget {
     this.maxRowHeight,
   });
 
+  void _showFullScreen(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: Text(card.getLocalizedTitle(
+              Localizations.localeOf(context).languageCode,
+            )),
+            backgroundColor: card.headerBackgroundColor != null
+                ? Color(card.headerBackgroundColor!)
+                : null,
+            foregroundColor: card.headerTextColor != null
+                ? Color(card.headerTextColor!)
+                : null,
+          ),
+          body: buildCardContent(context),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -43,6 +65,7 @@ abstract class BaseCardWidget extends StatelessWidget {
               ),
               onEdit: isEditing ? onEdit : null,
               onDelete: isEditing ? onDelete : null,
+              onFullScreen: isEditing ? null : () => _showFullScreen(context),
               dragHandle: isEditing ? dragHandle : null,
               isEditing: isEditing,
               backgroundColor: card.headerBackgroundColor != null

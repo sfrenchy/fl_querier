@@ -4,6 +4,7 @@ class CardHeader extends StatelessWidget {
   final String title;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final VoidCallback? onFullScreen;
   final Widget? dragHandle;
   final Color? textColor;
   final Color? backgroundColor;
@@ -14,6 +15,7 @@ class CardHeader extends StatelessWidget {
     required this.title,
     this.onEdit,
     this.onDelete,
+    this.onFullScreen,
     this.dragHandle,
     this.textColor,
     this.backgroundColor,
@@ -56,6 +58,12 @@ class CardHeader extends StatelessWidget {
                 onPressed: onDelete,
                 color: textColor,
               ),
+          ] else if (onFullScreen != null) ...[
+            IconButton(
+              icon: const Icon(Icons.fullscreen),
+              onPressed: onFullScreen,
+              color: textColor,
+            ),
           ],
         ],
       ),
