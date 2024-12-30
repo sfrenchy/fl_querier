@@ -41,29 +41,22 @@ class _LoginScreenState extends State<LoginScreen> {
             );
           }
           if (state.isAuthenticated) {
-            final navigatorContext = context;
             Navigator.pushReplacement(
               context,
-              PageRouteBuilder(
-                pageBuilder: (context, animation1, animation2) => const LoadingScreen(),
-                transitionDuration: Duration.zero,
-                reverseTransitionDuration: Duration.zero,
+              MaterialPageRoute(
+                builder: (context) => FutureBuilder(
+                  future: Future.delayed(const Duration(seconds: 2)),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.done) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        Navigator.of(context).pushReplacementNamed('/home');
+                      });
+                    }
+                    return const LoadingScreen();
+                  },
+                ),
               ),
             );
-
-            Future.delayed(const Duration(seconds: 2)).then((_) {
-              if (navigatorContext.mounted) {
-                Navigator.pushReplacement(
-                  navigatorContext,
-                  PageRouteBuilder(
-                    pageBuilder: (context, animation1, animation2) => 
-                      const HomeScreen(),
-                    transitionDuration: Duration.zero,
-                    reverseTransitionDuration: Duration.zero,
-                  ),
-                );
-              }
-            });
           }
         },
         builder: (context, state) {
