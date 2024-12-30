@@ -221,8 +221,7 @@ class _FLLineChartCardConfigState extends State<FLLineChartCardConfig> {
                 ),
 
                 // Y Axis
-                Text(l10n.yAxis,
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(l10n.yAxis, style: const TextStyle(fontWeight: FontWeight.bold)),
                 SwitchListTile(
                   title: Text(l10n.showGridLines),
                   value: config['yAxisShowGrid'] ?? true,
@@ -242,39 +241,6 @@ class _FLLineChartCardConfigState extends State<FLLineChartCardConfig> {
                     newConfig['yAxisLabel'] = value;
                     updateConfig(newConfig);
                   },
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        decoration: InputDecoration(
-                          labelText: l10n.minValue,
-                        ),
-                        initialValue: (config['yAxisMin'] as String?) ?? '',
-                        keyboardType: TextInputType.number,
-                        onChanged: (value) {
-                          final newConfig = Map<String, dynamic>.from(config);
-                          newConfig['yAxisMin'] = double.tryParse(value);
-                          updateConfig(newConfig);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TextFormField(
-                        decoration: InputDecoration(
-                          labelText: l10n.maxValue,
-                        ),
-                        initialValue: (config['yAxisMax'] as String?) ?? '',
-                        keyboardType: TextInputType.number,
-                        onChanged: (value) {
-                          final newConfig = Map<String, dynamic>.from(config);
-                          newConfig['yAxisMax'] = double.tryParse(value);
-                          updateConfig(newConfig);
-                        },
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
