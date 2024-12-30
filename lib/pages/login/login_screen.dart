@@ -5,6 +5,8 @@ import 'package:querier/blocs/language_bloc.dart';
 import 'package:querier/pages/add_api/add_api_screen.dart';
 import 'package:querier/pages/configure_api/admin_configuration_screen.dart';
 import 'login_bloc.dart';
+import 'package:querier/widgets/loading_screen.dart';
+import 'package:querier/widgets/controller_page.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -37,7 +39,24 @@ class _LoginScreenState extends State<LoginScreen> {
             );
           }
           if (state.isAuthenticated) {
-            Navigator.pushReplacementNamed(context, '/home');
+            Navigator.pushReplacement(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (context, animation1, animation2) => FutureBuilder(
+                  future: Future.delayed(const Duration(seconds: 2)),
+                  builder: (context, snapshot) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (snapshot.connectionState == ConnectionState.done) {
+                        Navigator.of(context).pushReplacementNamed('/home');
+                      }
+                    });
+                    return const LoadingScreen();
+                  },
+                ),
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+              ),
+            );
           }
         },
         builder: (context, state) {
