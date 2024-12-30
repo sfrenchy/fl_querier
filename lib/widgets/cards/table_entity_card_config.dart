@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import 'package:querier/models/entity_schema.dart';
 import 'package:querier/widgets/translation_manager.dart';
 import 'package:querier/services/data_context_service.dart';
+import 'package:querier/widgets/data_source_selector.dart';
+import 'dart:convert';
 
 class TableEntityCardConfig extends StatefulWidget {
   final TableEntityCard card;
@@ -23,92 +25,50 @@ class TableEntityCardConfig extends StatefulWidget {
 }
 
 class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
-  List<String> _contexts = [];
-  List<EntitySchema> _entities = [];
-  String? _selectedContext;
-  String? _selectedEntity;
-  bool _isLoading = true;
   List<Map<String, dynamic>> _selectedColumns = [];
   final Map<String, bool> _expandedStates = {};
-  late final DataContextService _dataContextService;
-  bool _initialized = false;
+  late DataSourceConfiguration _dataSourceConfig;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_initialized) {
-      _dataContextService = context.read<ApiClient>().dataContextService;
-      _initialized = true;
-    }
-    _loadContexts();
-  }
-
-  Future<void> _loadContexts() async {
-    try {
-      final contexts = await _dataContextService.getAvailableContexts();
-      if (mounted) {
-        setState(() {
-          _contexts = contexts;
-          _isLoading = false;
-          _selectedContext = widget.card.configuration['context'] as String?;
-          if (_selectedContext != null) {
-            _loadEntities(_selectedContext!);
-          }
-        });
-      }
-    } catch (e) {
-      // Gérer l'erreur
-    }
-  }
-
-  Future<void> _loadEntities(String context) async {
-    try {
-      final entities = await _dataContextService.getAvailableEntities(context);
-      if (mounted) {
-        setState(() {
-          _entities = entities;
-          _selectedEntity = widget.card.configuration['entity'] as String?;
-          if (_selectedEntity != null) {
-            _initializeColumns();
-          }
-        });
-      }
-    } catch (e) {
-      // Gérer l'erreur
+  void initState() {
+    super.initState();
+    _dataSourceConfig = DataSourceConfiguration.fromJson(widget.card.configuration);
+    if (_dataSourceConfig.entitySchema != null) {
+      _initializeColumns();
     }
   }
 
   void _initializeColumns() {
-    if (_selectedEntity != null) {
-      final entity = _entities.firstWhere((e) => e.name == _selectedEntity);
+    if (_dataSourceConfig.entitySchema != null) {
       final existingColumns = widget.card.configuration['columns'] as List?;
-
-      _selectedColumns = entity.properties.map((prop) {
-        Map<String, dynamic>? existingColumn;
-        if (existingColumns != null) {
-          try {
-            existingColumn = existingColumns.firstWhere(
-              (c) => c['key'] == prop.name,
-            ) as Map<String, dynamic>;
-          } catch (_) {
-            existingColumn = null;
+      setState(() {
+        _selectedColumns = _dataSourceConfig.entitySchema!.properties.map((prop) {
+          Map<String, dynamic>? existingColumn;
+          if (existingColumns != null) {
+            try {
+              existingColumn = existingColumns.firstWhere(
+                (c) => c['key'] == prop.name,
+              ) as Map<String, dynamic>;
+            } catch (_) {
+              existingColumn = null;
+            }
           }
-        }
 
-        return {
-          'name': prop.name,
-          'key': prop.name,
-          'type': prop.type,
-          'translations': existingColumn?['label'] != null
-              ? Map<String, String>.from(existingColumn!['label'] as Map)
-              : {'en': prop.name, 'fr': prop.name},
-          'alignment':
-              existingColumn?['alignment'] ?? _getDefaultAlignment(prop.type),
-          'visible': existingColumn?['visible'] ?? true,
-          'decimals': existingColumn?['decimals'] ??
-              (_isNumericType(prop.type) ? 0 : null),
-        };
-      }).toList();
+          return {
+            'name': prop.name,
+            'key': prop.name,
+            'type': prop.type,
+            'translations': existingColumn?['label'] != null
+                ? Map<String, String>.from(existingColumn!['label'] as Map)
+                : {'en': prop.name, 'fr': prop.name},
+            'alignment':
+                existingColumn?['alignment'] ?? _getDefaultAlignment(prop.type),
+            'visible': existingColumn?['visible'] ?? true,
+            'decimals': existingColumn?['decimals'] ??
+                (_isNumericType(prop.type) ? 0 : null),
+          };
+        }).toList();
+      });
     }
   }
 
@@ -129,23 +89,15 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
 
   String _getDefaultAlignment(String type) {
     switch (type) {
-      case "String?":
       case 'String':
         return 'left';
-      case "DateTime?":
-      case "DateTime":
-        return 'right';
-      case "Int32?":
       case 'Int32':
-      case "Int16?":
-      case 'Int16':
-      case "Decimal?":
+      case 'Int64':
       case 'Decimal':
-      case "Double?":
       case 'Double':
         return 'right';
       default:
-        return 'center';
+        return 'left';
     }
   }
 
@@ -153,8 +105,9 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
     final newConfig = Map<String, dynamic>.from(widget.card.configuration);
     newConfig['columns'] = _selectedColumns
         .map((col) => {
-              'key': col['name'],
-              'label': col['translations'],
+              'key': col['key'],
+              'label': col['label'],
+              'type': col['type'],
               'alignment': col['alignment'],
               'visible': col['visible'],
               'decimals': col['decimals'],
@@ -163,29 +116,74 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
     widget.onConfigurationChanged(newConfig);
   }
 
+  void _onDataSourceConfigChanged(DataSourceConfiguration newConfig) async {
+    setState(() {
+      _dataSourceConfig = newConfig;
+      _selectedColumns = [];
+    });
+
+    final updatedConfig = Map<String, dynamic>.from(widget.card.configuration);
+    
+    updatedConfig['type'] = 'TableEntity';
+    updatedConfig['dataSource'] = {
+      'type': newConfig.type.toString(),
+      'query': newConfig.query,
+      'context': newConfig.context,
+      'entity': newConfig.entity,
+    };
+
+    if (newConfig.type == DataSourceType.query && newConfig.query != null) {
+      try {
+        final apiClient = context.read<ApiClient>();
+        final queries = await apiClient.getSQLQueries();
+        final query = queries.firstWhere((q) => q.name == newConfig.query);
+        
+        if (query.outputDescription != null) {
+          try {
+            final entitySchema = EntitySchema.fromJson(
+              json.decode(query.outputDescription!) as Map<String, dynamic>
+            );
+            
+            final columns = entitySchema.properties.map((prop) => {
+              'key': prop.name,
+              'label': {'en': prop.name, 'fr': prop.name},
+              'type': prop.type,
+              'alignment': _getDefaultAlignment(prop.type),
+              'visible': true,
+              'decimals': _isNumericType(prop.type) ? 0 : null,
+            }).toList();
+
+            setState(() {
+              _selectedColumns = List<Map<String, dynamic>>.from(columns);
+            });
+
+            updatedConfig['columns'] = columns;
+            updatedConfig['entitySchema'] = entitySchema.toJson();
+          } catch (e) {
+            debugPrint('Error parsing query description: $e');
+          }
+        }
+      } catch (e) {
+        debugPrint('Error loading query: $e');
+      }
+    }
+
+    debugPrint('Updated config: $updatedConfig');
+    widget.onConfigurationChanged(updatedConfig);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(l10n.dataSource,
-                    style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                _buildContextSelector(),
-                if (_selectedContext != null) _buildEntitySelector(),
-              ],
-            ),
-          ),
+        DataSourceSelector(
+          initialConfiguration: _dataSourceConfig,
+          onConfigurationChanged: _onDataSourceConfigChanged,
         ),
         const SizedBox(height: 16),
-        if (_selectedEntity != null)
+        if (_selectedColumns.isNotEmpty)
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -201,78 +199,6 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildContextSelector() {
-    final l10n = AppLocalizations.of(context)!;
-    return DropdownButton<String>(
-      value: _selectedContext,
-      isExpanded: true,
-      hint: Text(l10n.selectDataContext),
-      items: _contexts
-          .map(
-            (context) => DropdownMenuItem(
-              value: context,
-              child: Text(context),
-            ),
-          )
-          .toList(),
-      onChanged: (value) {
-        setState(() {
-          _selectedContext = value;
-          _selectedEntity = null;
-          _entities.clear();
-        });
-        if (value != null) {
-          _loadEntities(value);
-          final newConfig =
-              Map<String, dynamic>.from(widget.card.configuration);
-          newConfig['context'] = value;
-          widget.onConfigurationChanged(newConfig);
-        }
-      },
-    );
-  }
-
-  Widget _buildEntitySelector() {
-    final l10n = AppLocalizations.of(context)!;
-    return DropdownButton<String>(
-      value: _selectedEntity,
-      isExpanded: true,
-      hint: Text(l10n.selectEntity),
-      items: _entities
-          .map(
-            (entity) => DropdownMenuItem(
-              value: entity.name,
-              child: Text(entity.name),
-            ),
-          )
-          .toList(),
-      onChanged: (value) {
-        setState(() => _selectedEntity = value);
-        if (value != null) {
-          final entity = _entities.firstWhere((e) => e.name == value);
-          final newConfig =
-              Map<String, dynamic>.from(widget.card.configuration);
-          newConfig['entity'] = value;
-          newConfig['entitySchema'] = entity.toJson();
-
-          // Initialiser les colonnes par défaut
-          newConfig['columns'] = entity.properties
-              .map((prop) => {
-                    'key': prop.name,
-                    'label': {'en': prop.name, 'fr': prop.name},
-                    'alignment': _getDefaultAlignment(prop.type),
-                    'visible': true,
-                    'decimals': _isNumericType(prop.type) ? 0 : null,
-                  })
-              .toList();
-
-          widget.onConfigurationChanged(newConfig);
-          _initializeColumns(); // Mettre à jour l'interface
-        }
-      },
     );
   }
 
@@ -292,7 +218,7 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
       },
       itemBuilder: (context, index) {
         final column = _selectedColumns[index];
-        final columnKey = column['name'] as String;
+        final columnKey = column['key'] as String;
 
         return StatefulBuilder(
           key: ValueKey(columnKey),
@@ -307,7 +233,10 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
                       child: Icon(Icons.drag_handle),
                     ),
                   ),
-                  title: Text(column['name']),
+                  title: Text(
+                    (column['label'] as Map<String, dynamic>?)?['fr'] ?? 
+                    column['key'] as String
+                  ),
                   subtitle: Text('Type: ${column['type']}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -319,9 +248,8 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
                     ],
                   ),
                   onTap: () {
-                    this.setState(() {
-                      _expandedStates[columnKey] =
-                          !(_expandedStates[columnKey] ?? false);
+                    setState(() {
+                      _expandedStates[columnKey] = !(_expandedStates[columnKey] ?? false);
                     });
                   },
                 ),

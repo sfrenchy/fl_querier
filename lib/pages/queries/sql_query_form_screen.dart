@@ -54,10 +54,10 @@ class _SQLQueryFormScreenState extends State<SQLQueryFormScreen> {
     print('Initial parameters from query: ${widget.query?.parameters}');
 
     if (widget.query?.parameters != null &&
-        widget.query!.parameters.isNotEmpty) {
+        widget.query!.parameters!.isNotEmpty) {
       setState(() {
         _sampleParameters.clear();
-        _sampleParameters.addAll(widget.query!.parameters);
+        _sampleParameters.addAll(widget.query!.parameters!);
       });
     }
 

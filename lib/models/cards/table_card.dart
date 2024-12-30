@@ -1,6 +1,11 @@
 import 'package:querier/models/dynamic_card.dart';
 
 class TableEntityCard extends DynamicCard {
+  List<Map<String, dynamic>> _columns = [];
+  
+  List<Map<String, dynamic>> get columns => _columns;
+  set columns(List<Map<String, dynamic>> value) => _columns = value;
+
   static const List<Map<String, dynamic>> defaultColumns = [
     {
       'key': 'id',
@@ -10,19 +15,13 @@ class TableEntityCard extends DynamicCard {
 
   static const List<Map<String, dynamic>> defaultData = [];
 
-  List<Map<String, dynamic>> get columns =>
-      ((configuration['columns'] as List?)
-          ?.map((col) => Map<String, dynamic>.from(col))
-          .toList()) ??
-      defaultColumns;
-
   List<Map<String, dynamic>> get data =>
       ((configuration['data'] as List?)
           ?.map((item) => Map<String, dynamic>.from(item))
           .toList()) ??
       defaultData;
 
-  const TableEntityCard({
+  TableEntityCard({
     required super.id,
     required super.titles,
     required super.order,

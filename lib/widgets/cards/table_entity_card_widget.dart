@@ -8,12 +8,12 @@ import 'package:querier/api/api_client.dart';
 import 'package:provider/provider.dart';
 import 'package:querier/utils/data_formatter.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:querier/widgets/data_source_selector.dart';
 
 class TableEntityCardWidget extends BaseCardWidget {
   static const int _pageSize = 10;
   final _paginationController = StreamController<(int, int)>.broadcast();
-  final _dataController =
-      StreamController<(List<Map<String, dynamic>>, int)>.broadcast();
+  final _dataController = StreamController<(List<dynamic>, int)>.broadcast();
 
   // Cache pour stocker les données par page
   final Map<int, List<Map<String, dynamic>>> _dataCache = {};
@@ -56,8 +56,7 @@ class TableEntityCardWidget extends BaseCardWidget {
     return 'String';
   }
 
-  Future<void> _loadData(BuildContext buildContext, TableEntityCard card,
-      {int page = 1}) async {
+  Future<void> _loadData(BuildContext context, TableEntityCard card, {int page = 1}) async {
     // Vérifier si les données sont dans le cache
     if (_dataCache.containsKey(page)) {
       _dataController.add((_dataCache[page]!, _totalItems!));
@@ -65,29 +64,18 @@ class TableEntityCardWidget extends BaseCardWidget {
       return;
     }
 
-    final apiClient = buildContext.read<ApiClient>();
-    final context = card.configuration['context'] as String?;
-    final entity = card.configuration['entity'] as String?;
+    final apiClient = context.read<ApiClient>();
+    final config = DataSourceConfiguration.fromJson(card.configuration);
 
-    if (context == null || entity == null) {
-      // Retourner une liste vide si la configuration n'est pas définie
-      _dataCache[page] = [];
-      _totalItems = 0;
-      _paginationController.add((page, 0));
-      _dataController.add(([], 0));
-      return;
-    }
-
-    final result = await apiClient.getEntityData(
-      context,
-      entity,
+    final result = await config.fetchData(
+      apiClient,
       pageNumber: page,
       pageSize: _pageSize,
-      orderBy: _sortColumn == null ? "" : _sortColumn!,
+      orderBy: _sortColumn ?? "",
     );
 
     // Mettre en cache les données
-    _dataCache[page] = result.$1;
+    _dataCache[page] = (result.$1 as List).map((item) => Map<String, dynamic>.from(item)).toList();
     _totalItems = result.$2;
 
     _paginationController.add((page, result.$2));
@@ -121,21 +109,44 @@ class TableEntityCardWidget extends BaseCardWidget {
   @override
   Widget buildCardContent(BuildContext context) {
     final tableCard = card as TableEntityCard;
-    final hasConfig = tableCard.configuration['context'] != null &&
-        tableCard.configuration['entity'] != null;
+    final config = DataSourceConfiguration.fromJson(tableCard.configuration);
+    final columns = tableCard.configuration['columns'] as List?;
+    
+    // Ajouter des logs de débogage
+    debugPrint('Configuration: ${tableCard.configuration}');
+    debugPrint('Columns in config: $columns');
+    debugPrint('DataSource type: ${config.type}');
+    debugPrint('DataSource query: ${config.query}');
 
-    // Ne charger les données que si on a une configuration
-    if (hasConfig) {
-      _loadData(context, tableCard, page: 1);
+    // Vérifier la configuration
+    if (!_isConfigurationValid(config, columns)) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.settings, size: 48),
+            SizedBox(height: 8),
+            Text('Configuration required'),
+          ],
+        ),
+      );
     }
+
+    // Initialiser les colonnes si nécessaire
+    if (tableCard.columns.isEmpty && columns != null) {
+      tableCard.columns = List<Map<String, dynamic>>.from(columns);
+    }
+
+    // Charger les données
+    _loadData(context, tableCard, page: 1);
 
     return SizedBox(
       width: double.infinity,
-      child: StreamBuilder<(List<Map<String, dynamic>>, int)>(
+      child: StreamBuilder<(List<dynamic>, int)>(
         stream: _dataController.stream,
         builder: (context, snapshot) {
-          // Si pas de configuration, afficher directement le message
-          if (!hasConfig) {
+          // Vérifier si les colonnes sont vides
+          if (tableCard.columns.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -152,9 +163,19 @@ class TableEntityCardWidget extends BaseCardWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final (items, _) = snapshot.data!;
+          final (rawItems, _) = snapshot.data!;
+          final items = (rawItems as List).map((item) => Map<String, dynamic>.from(item)).toList();
           if (items.isEmpty) {
             return const Center(child: Text('Aucune donnée'));
+          }
+
+          // Vérifier qu'il y a au moins une colonne visible
+          final visibleColumns = tableCard.columns
+              .where((column) => column['visible'] == true)
+              .toList();
+          
+          if (visibleColumns.isEmpty) {
+            return const Center(child: Text('No visible columns'));
           }
 
           // Création des controllers dans le builder
@@ -298,5 +319,36 @@ class TableEntityCardWidget extends BaseCardWidget {
       default:
         return Alignment.centerLeft; // Alignement par défaut
     }
+  }
+
+  String _getDefaultAlignment(String type) {
+    switch (type) {
+      case 'String':
+        return 'left';
+      case 'Int32':
+      case 'Decimal':
+      case 'Double':
+        return 'right';
+      default:
+        return 'left';
+    }
+  }
+
+  bool _isConfigurationValid(DataSourceConfiguration config, List? columns) {
+    debugPrint('Validating configuration:');
+    debugPrint('- Type: ${config.type}');
+    debugPrint('- Query: ${config.query}');
+    debugPrint('- Columns: ${columns?.length ?? 0}');
+
+    // Vérifier si c'est une configuration de requête
+    if (config.query != null) {
+      return columns != null && columns.isNotEmpty;
+    }
+    
+    // Sinon, vérifier si c'est une configuration d'entité
+    return config.context != null && 
+           config.entity != null && 
+           columns != null && 
+           columns.isNotEmpty;
   }
 }

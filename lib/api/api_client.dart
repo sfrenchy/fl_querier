@@ -190,7 +190,7 @@ class ApiClient {
     await _secureStorage.delete(key: 'refresh_token');
     await _dio.post(
       ApiEndpoints.buildUrl(baseUrl, ApiEndpoints.signOut),
-      data: {},
+      data: <String, dynamic>{},
     );
   }
 
@@ -400,9 +400,10 @@ class ApiClient {
     return response;
   }
 
-  Future<Response> get(String endpoint) async {
+  Future<Response> get(String endpoint, {Map<String, dynamic>? queryParameters}) async {
     final response = await _dio.get(
       ApiEndpoints.buildUrl(baseUrl, endpoint),
+      queryParameters: queryParameters,
     );
     return response;
   }
@@ -730,12 +731,12 @@ class ApiClient {
 
       print('API Response: ${response.data}'); // Debug
 
-      final List<Map<String, dynamic>> data = (response.data['Data'] as List)
+      final List<Map<String, dynamic>> data = (response.data['Items'] as List)
           .map(
               (item) => Map<String, dynamic>.from(item as Map<String, dynamic>))
           .toList();
 
-      final totalCount = response.data['TotalCount'] as int? ?? 0;
+      final totalCount = response.data['Total'] as int? ?? 0;
 
       return (data, totalCount);
     } catch (e) {
@@ -860,5 +861,42 @@ class ApiClient {
       data: request.toJson(),
     );
     return QueryAnalysis.fromJson(response.data);
+  }
+
+  Future<(List<dynamic>, int)> executeQuery(
+    String queryName, {
+    int pageNumber = 1,
+    int pageSize = 0,
+  }) async {
+    final queries = await getSQLQueries();
+    final query = queries.firstWhere(
+      (q) => q.name == queryName,
+      orElse: () => throw Exception('Query not found: $queryName'),
+    );
+
+    final response = await _dio.post(
+      ApiEndpoints.buildUrl(
+        baseUrl,
+        'SQLQuery/${query.id}/execute'
+      ),
+      queryParameters: {
+        'pageNumber': pageNumber,
+        'pageSize': pageSize,
+      },
+      data: <String, dynamic>{},
+      options: Options(
+        contentType: 'application/json-patch+json',
+      ),
+    );
+
+    if (response.statusCode == 200) {
+      final data = response.data as Map<String, dynamic>;
+      return (
+        data['Items'] as List<dynamic>,
+        data['Total'] as int,
+      );
+    }
+
+    throw Exception('Failed to execute query');
   }
 }
