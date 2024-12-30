@@ -4,6 +4,7 @@ import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:querier/blocs/language_bloc.dart';
 import 'package:querier/pages/add_api/add_api_screen.dart';
 import 'package:querier/pages/configure_api/admin_configuration_screen.dart';
+import 'package:querier/pages/home/home_screen.dart';
 import 'login_bloc.dart';
 import 'package:querier/widgets/loading_screen.dart';
 import 'package:querier/widgets/controller_page.dart';
@@ -26,7 +27,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.login),
+        automaticallyImplyLeading: false,
+        title: const Text('Querier'),
         actions: [
           _buildLanguageSelector(context),
         ],
@@ -39,24 +41,29 @@ class _LoginScreenState extends State<LoginScreen> {
             );
           }
           if (state.isAuthenticated) {
+            final navigatorContext = context;
             Navigator.pushReplacement(
               context,
               PageRouteBuilder(
-                pageBuilder: (context, animation1, animation2) => FutureBuilder(
-                  future: Future.delayed(const Duration(seconds: 2)),
-                  builder: (context, snapshot) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (snapshot.connectionState == ConnectionState.done) {
-                        Navigator.of(context).pushReplacementNamed('/home');
-                      }
-                    });
-                    return const LoadingScreen();
-                  },
-                ),
+                pageBuilder: (context, animation1, animation2) => const LoadingScreen(),
                 transitionDuration: Duration.zero,
                 reverseTransitionDuration: Duration.zero,
               ),
             );
+
+            Future.delayed(const Duration(seconds: 2)).then((_) {
+              if (navigatorContext.mounted) {
+                Navigator.pushReplacement(
+                  navigatorContext,
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation1, animation2) => 
+                      const HomeScreen(),
+                    transitionDuration: Duration.zero,
+                    reverseTransitionDuration: Duration.zero,
+                  ),
+                );
+              }
+            });
           }
         },
         builder: (context, state) {
