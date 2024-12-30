@@ -306,9 +306,10 @@ class _FLLineChartContentState extends State<_FLLineChartContent> {
           ),
           titlesData: FlTitlesData(
             leftTitles: AxisTitles(
+              axisNameWidget: Text(widget.card.configuration['yAxisLabel'] ?? ''),
               sideTitles: SideTitles(
                 showTitles: true,
-                interval: max(1.0, (maxY - minY) / 5), // Assurer un intervalle minimum de 1
+                interval: max(1.0, (maxY - minY) / 5),
                 reservedSize: 40,
                 getTitlesWidget: (value, meta) => Text(
                   value.toStringAsFixed(1),
@@ -317,6 +318,7 @@ class _FLLineChartContentState extends State<_FLLineChartContent> {
               ),
             ),
             bottomTitles: AxisTitles(
+              axisNameWidget: Text(widget.card.configuration['xAxisLabel'] ?? ''),
               sideTitles: SideTitles(
                 showTitles: true,
                 interval: 1,

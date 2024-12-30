@@ -120,7 +120,7 @@ class _FLLineChartCardConfigState extends State<FLLineChartCardConfig> {
             // Data Source Section
             ExpansionTile(
               title: Text(l10n.dataSource),
-              initiallyExpanded: true,
+              initiallyExpanded: false,
               children: [
                 DataSourceSelector(
                   initialConfiguration: _dataSourceConfig,
@@ -162,10 +162,7 @@ class _FLLineChartCardConfigState extends State<FLLineChartCardConfig> {
                       newConfig['pageSize'] = int.tryParse(value) ?? 100;
                       updateConfig(newConfig);
                     },
-                  ),
-                if (_dataSourceConfig.entitySchema != null) ...[
-                  _buildLinesConfiguration(l10n),
-                ],
+                  )
               ],
             ),
 
