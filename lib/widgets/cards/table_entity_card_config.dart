@@ -28,6 +28,7 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
   List<Map<String, dynamic>> _selectedColumns = [];
   final Map<String, bool> _expandedStates = {};
   late DataSourceConfiguration _dataSourceConfig;
+  List<Column> _availableColumns = [];
 
   @override
   void initState() {
@@ -116,58 +117,31 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
     widget.onConfigurationChanged(newConfig);
   }
 
-  void _onDataSourceConfigChanged(DataSourceConfiguration newConfig) async {
-    debugPrint('New config type: ${newConfig.type.name}');
-    debugPrint('Current config: ${widget.card.configuration}');
+  void _onDataSourceConfigurationChanged(DataSourceConfiguration config) {
+    debugPrint('Configuration: ${config.toJson()}');
+    debugPrint('EntitySchema: ${config.entitySchema}');
     
     setState(() {
-      _dataSourceConfig = newConfig;
-      _selectedColumns = [];
-    });
+      _dataSourceConfig = config;
+      if (config.entitySchema != null) {
+        _selectedColumns = config.entitySchema!.properties.map((p) => {
+          'key': p.name,
+          'label': {
+            'en': p.name,
+            'fr': p.name,
+          },
+          'type': p.type,
+          'alignment': _getDefaultAlignment(p.type),
+          'visible': true,
+          'decimals': _isNumericType(p.type) ? 0 : null,
+        }).toList();
 
-    final updatedConfig = Map<String, dynamic>.from(widget.card.configuration);
-    updatedConfig['type'] = 'TableEntity';
-    updatedConfig['dataSource'] = {
-      'type': newConfig.type.name,
-      'query': newConfig.query,
-      'context': newConfig.context,
-      'entity': newConfig.entity,
-    };
-
-    debugPrint('Updated config before save: $updatedConfig');
-    widget.onConfigurationChanged(updatedConfig);
-
-    if (newConfig.type == DataSourceType.query && newConfig.query != null) {
-      try {
-        final apiClient = context.read<ApiClient>();
-        final queries = await apiClient.getSQLQueries();
-        final query = queries.firstWhere((q) => q.name == newConfig.query);
-        
-        if (query.outputDescription != null) {
-          final entitySchema = EntitySchema.fromJson(
-            json.decode(query.outputDescription!) as Map<String, dynamic>
-          );
-          
-          final columns = entitySchema.properties.map((prop) => {
-            'key': prop.name,
-            'label': {'en': prop.name, 'fr': prop.name},
-            'type': prop.type,
-            'alignment': _getDefaultAlignment(prop.type),
-            'visible': true,
-            'decimals': _isNumericType(prop.type) ? 0 : null,
-          }).toList();
-
-          setState(() {
-            _selectedColumns = List<Map<String, dynamic>>.from(columns);
-          });
-
-          updatedConfig['columns'] = columns;
-          updatedConfig['entitySchema'] = entitySchema.toJson();
-        }
-      } catch (e) {
-        debugPrint('Error loading query: $e');
+        final newConfig = Map<String, dynamic>.from(widget.card.configuration);
+        newConfig['dataSource'] = config.toJson()['dataSource'];
+        newConfig['columns'] = _selectedColumns;
+        widget.onConfigurationChanged(newConfig);
       }
-    }
+    });
   }
 
   @override
@@ -178,7 +152,7 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
       children: [
         DataSourceSelector(
           initialConfiguration: _dataSourceConfig,
-          onConfigurationChanged: _onDataSourceConfigChanged,
+          onConfigurationChanged: _onDataSourceConfigurationChanged,
         ),
         const SizedBox(height: 16),
         if (_selectedColumns.isNotEmpty)
