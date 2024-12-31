@@ -288,5 +288,6 @@
     "addParameter": "Ajouter un paramètre",
     "queryBuilder": "Constructeur de requêtes",
     "query": "Requête",
-    "selectQuery": "Sélectionner une requête"
+    "selectQuery": "Sélectionner une requête",
+    "byteArrayType": "Type de tableau d'octets"
 } 

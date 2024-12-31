@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:querier/models/cards/table_card.dart';
@@ -41,9 +43,10 @@ class TableEntityCardWidget extends BaseCardWidget {
   String _getPropertyType(String columnKey) {
     try {
       final tableCard = card as TableEntityCard;
-      final entitySchema =
-          tableCard.configuration['entitySchema'] as Map<String, dynamic>;
-      final properties = entitySchema['Properties'] as List<dynamic>;
+      final entitySchema = tableCard.configuration['entitySchema'];
+      if (entitySchema == null) return 'String';
+
+      final properties = (entitySchema as Map<String, dynamic>)['Properties'] as List<dynamic>;
       final property = properties.firstWhere(
         (p) => p['Name'] == columnKey,
         orElse: () => {'Type': 'String'},
@@ -52,8 +55,8 @@ class TableEntityCardWidget extends BaseCardWidget {
       return type;
     } catch (e) {
       debugPrint('Erreur lors de la récupération du type: $e');
+      return 'String';
     }
-    return 'String';
   }
 
   Future<void> _loadData(BuildContext context, TableEntityCard card, {int page = 1}) async {
@@ -227,11 +230,7 @@ class TableEntityCardWidget extends BaseCardWidget {
                                         Align(
                                           alignment: _getAlignment(
                                               column['alignment'] as String?),
-                                          child: Text(DataFormatter.format(
-                                            row[column['key']],
-                                            _getPropertyType(column['key']),
-                                            context,
-                                          )),
+                                          child: _buildCellContent(context, row[column['key']], column),
                                         ),
                                       ))
                                   .toList(),
@@ -350,5 +349,68 @@ class TableEntityCardWidget extends BaseCardWidget {
            config.entity != null && 
            columns != null && 
            columns.isNotEmpty;
+  }
+
+  Widget _buildCellContent(BuildContext context, dynamic value, Map<String, dynamic> column) {
+    if (value == null) return const Text('');
+    
+    final type = _getPropertyType(column['key']);
+    if (['Byte[]', 'byte[]'].contains(type)) {
+      final byteArrayType = column['byteArrayType'] ?? 'Raw';
+      if (byteArrayType == 'Image') {
+        Uint8List bytes;
+        if (value is String) {
+          // Si les données sont en base64
+          bytes = base64Decode(value);
+        } else if (value is List) {
+          // Si les données sont déjà en bytes
+          bytes = Uint8List.fromList(value.cast<int>());
+        } else {
+          return const Text('Invalid image data');
+        }
+        
+        return Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey),
+          ),
+          child: InkWell(
+            onTap: () => _showFullImage(context, bytes),
+            child: Image.memory(
+              bytes,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return const Center(child: Icon(Icons.broken_image));
+              },
+            ),
+          ),
+        );
+      }
+    }
+    
+    return Text(DataFormatter.format(
+      value,
+      type,
+      context,
+    ));
+  }
+
+  void _showFullImage(BuildContext context, Uint8List bytes) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          constraints: const BoxConstraints(
+            maxWidth: 800,
+            maxHeight: 600,
+          ),
+          child: Image.memory(
+            bytes,
+            fit: BoxFit.contain,
+          ),
+        ),
+      ),
+    );
   }
 }
