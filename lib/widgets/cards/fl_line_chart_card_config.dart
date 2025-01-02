@@ -42,23 +42,27 @@ class _FLLineChartCardConfigState extends State<FLLineChartCardConfig> {
       config['lines'] = [];
     }
     
-    // S'assurer que nous avons un type de source de données
-    if (!config.containsKey('type')) {
-      config['type'] = DataSourceType.api.toString();
+    // Récupérer la configuration de la source de données
+    final dataSource = config['dataSource'] as Map<String, dynamic>?;
+    if (dataSource != null) {
+      _dataSourceConfig = DataSourceConfiguration(
+        type: DataSourceType.values.firstWhere(
+          (t) => t.name.toLowerCase() == (dataSource['type'] as String).toLowerCase(),
+          orElse: () => DataSourceType.api,
+        ),
+        query: dataSource['query'] as String?,
+        context: dataSource['context'] as String?,
+        entity: dataSource['entity'] as String?,
+        entitySchema: config['entitySchema'] != null 
+            ? EntitySchema.fromJson(config['entitySchema'])
+            : null,
+      );
+    } else {
+      _dataSourceConfig = DataSourceConfiguration(type: DataSourceType.api);
     }
 
-    // Initialiser _dataSourceConfig
-    _dataSourceConfig = DataSourceConfiguration(
-      type: DataSourceType.values.firstWhere(
-        (e) => e.toString() == config['type'],
-        orElse: () => DataSourceType.api,
-      ),
-      context: config['context'],
-      entity: config['entity'],
-      entitySchema: config['entitySchema'] != null 
-          ? EntitySchema.fromJson(config['entitySchema'])
-          : null,
-    );
+    debugPrint('Initial config: $config');
+    debugPrint('DataSource config: ${_dataSourceConfig.toJson()}');
   }
 
   void updateConfig(Map<String, dynamic> newConfig) {

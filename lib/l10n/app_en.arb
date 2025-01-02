@@ -289,5 +289,6 @@
     "addParameter": "Add Parameter",
     "queryBuilder": "Query Builder",
     "query": "Query",
-    "selectQuery": "Select Query"
+    "selectQuery": "Select Query",
+    "byteArrayType": "Byte Array Type"
 } 

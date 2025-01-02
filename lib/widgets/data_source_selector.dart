@@ -57,38 +57,37 @@ class DataSourceConfiguration {
   }
 
   Map<String, dynamic> toJson() => {
-        'type': type.toString(),
-        'query': query,
-        'context': context,
-        'entity': entity,
+        'dataSource': {
+          'type': type.name,
+          'query': query,
+          'context': context,
+          'entity': entity,
+        },
       };
 
   factory DataSourceConfiguration.fromJson(Map<String, dynamic> json) {
-    // Déterminer le type en fonction des données présentes
-    DataSourceType type;
-    if (json['type'] != null) {
-      // Utiliser directement la valeur du type si elle existe
-      type = DataSourceType.values.firstWhere(
-        (e) => e.toString() == json['type'],
-        orElse: () => DataSourceType.api,
+    final dataSource = json['dataSource'] as Map<String, dynamic>?;
+    if (dataSource != null) {
+      final typeStr = dataSource['type'] as String?;
+      final type = typeStr != null 
+          ? DataSourceType.values.firstWhere(
+              (t) => t.name.toLowerCase() == typeStr.toLowerCase(),
+              orElse: () => DataSourceType.api,
+            )
+          : DataSourceType.api;
+
+      return DataSourceConfiguration(
+        type: type,
+        query: dataSource['query'] as String?,
+        context: dataSource['context'] as String?,
+        entity: dataSource['entity'] as String?,
+        entitySchema: json['entitySchema'] != null
+            ? EntitySchema.fromJson(json['entitySchema'])
+            : null,
       );
-    } else if (json['query'] != null) {
-      type = DataSourceType.query;
-    } else if (json['context'] != null && json['entity'] != null) {
-      type = DataSourceType.entity;
-    } else {
-      type = DataSourceType.api;
     }
 
-    return DataSourceConfiguration(
-      type: type,
-      query: json['query'],
-      context: json['context'],
-      entity: json['entity'],
-      entitySchema: json['entitySchema'] != null
-          ? EntitySchema.fromJson(json['entitySchema'])
-          : null,
-    );
+    return DataSourceConfiguration(type: DataSourceType.api);
   }
 
   DataSourceConfiguration copyWith({

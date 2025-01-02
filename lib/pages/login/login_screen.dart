@@ -4,7 +4,10 @@ import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:querier/blocs/language_bloc.dart';
 import 'package:querier/pages/add_api/add_api_screen.dart';
 import 'package:querier/pages/configure_api/admin_configuration_screen.dart';
+import 'package:querier/pages/home/home_screen.dart';
 import 'login_bloc.dart';
+import 'package:querier/widgets/loading_screen.dart';
+import 'package:querier/widgets/controller_page.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,7 +27,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.login),
+        automaticallyImplyLeading: false,
+        title: const Text('Querier'),
         actions: [
           _buildLanguageSelector(context),
         ],
@@ -37,7 +41,22 @@ class _LoginScreenState extends State<LoginScreen> {
             );
           }
           if (state.isAuthenticated) {
-            Navigator.pushReplacementNamed(context, '/home');
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => FutureBuilder(
+                  future: Future.delayed(const Duration(seconds: 2)),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.done) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        Navigator.of(context).pushReplacementNamed('/home');
+                      });
+                    }
+                    return const LoadingScreen();
+                  },
+                ),
+              ),
+            );
           }
         },
         builder: (context, state) {
@@ -63,21 +82,23 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           _buildApiUrlDropdown(context, state),
                           const SizedBox(height: 24),
-                          if (state.isConfigured) ...[
-                            _buildEmailField(context),
-                            const SizedBox(height: 16),
-                            _buildPasswordField(context),
-                            const SizedBox(height: 32),
-                            _buildLoginButton(context, state),
-                          ] else if (state.selectedUrl.isNotEmpty) ...[
-                            const SizedBox(height: 24),
-                            _buildConfigureButton(context),
+                          if (state.selectedUrl.isNotEmpty) ...[
+                            if (state.isLoading)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24),
+                                child: CircularProgressIndicator(),
+                              )
+                            else if (state.isConfigured) ...[
+                              _buildEmailField(context),
+                              const SizedBox(height: 16),
+                              _buildPasswordField(context),
+                              const SizedBox(height: 32),
+                              _buildLoginButton(context, state),
+                            ] else ...[
+                              const SizedBox(height: 24),
+                              _buildConfigureButton(context),
+                            ],
                           ],
-                          if (state.isLoading)
-                            const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: CircularProgressIndicator(),
-                            ),
                         ],
                       ),
                     ),
