@@ -290,5 +290,8 @@
     "queryBuilder": "Query Builder",
     "query": "Query",
     "selectQuery": "Select Query",
-    "byteArrayType": "Byte Array Type"
+    "byteArrayType": "Byte Array Type",
+    "@byteArrayType": {
+        "description": "Label for byte array type selector"
+    }
 } 

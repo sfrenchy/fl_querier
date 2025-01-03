@@ -289,5 +289,8 @@
     "queryBuilder": "Constructeur de requêtes",
     "query": "Requête",
     "selectQuery": "Sélectionner une requête",
-    "byteArrayType": "Type de tableau d'octets"
+    "byteArrayType": "Type de tableau d'octets",
+    "@byteArrayType": {
+        "description": "Label for byte array type selector"
+    }
 } 
