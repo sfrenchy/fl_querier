@@ -43,23 +43,19 @@ class TableEntityCardWidget extends BaseCardWidget {
   String _getPropertyType(String columnKey) {
     try {
       final tableCard = card as TableEntityCard;
-      final entitySchema = tableCard.configuration['entitySchema'];
-      if (entitySchema == null) return 'String';
-
-      final properties = (entitySchema as Map<String, dynamic>)['Properties'] as List<dynamic>;
-      final property = properties.firstWhere(
-        (p) => p['Name'] == columnKey,
-        orElse: () => {'Type': 'String'},
+      final column = tableCard.columns.firstWhere(
+        (col) => col['key'] == columnKey,
+        orElse: () => {'type': 'String'},
       );
-      final type = property['Type'] as String? ?? 'String';
-      return type;
+      return column['type'] as String? ?? 'String';
     } catch (e) {
       debugPrint('Erreur lors de la récupération du type: $e');
       return 'String';
     }
   }
 
-  Future<void> _loadData(BuildContext context, TableEntityCard card, {int page = 1}) async {
+  Future<void> _loadData(BuildContext context, TableEntityCard card,
+      {int page = 1}) async {
     // Vérifier si les données sont dans le cache
     if (_dataCache.containsKey(page)) {
       _dataController.add((_dataCache[page]!, _totalItems!));
@@ -78,7 +74,9 @@ class TableEntityCardWidget extends BaseCardWidget {
     );
 
     // Mettre en cache les données
-    _dataCache[page] = (result.$1 as List).map((item) => Map<String, dynamic>.from(item)).toList();
+    _dataCache[page] = (result.$1 as List)
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
     _totalItems = result.$2;
 
     _paginationController.add((page, result.$2));
@@ -114,7 +112,7 @@ class TableEntityCardWidget extends BaseCardWidget {
     final tableCard = card as TableEntityCard;
     final config = DataSourceConfiguration.fromJson(tableCard.configuration);
     final columns = tableCard.configuration['columns'] as List?;
-    
+
     // Ajouter des logs de débogage
     debugPrint('Configuration: ${tableCard.configuration}');
     debugPrint('Columns in config: $columns');
@@ -167,7 +165,9 @@ class TableEntityCardWidget extends BaseCardWidget {
           }
 
           final (rawItems, _) = snapshot.data!;
-          final items = (rawItems as List).map((item) => Map<String, dynamic>.from(item)).toList();
+          final items = (rawItems as List)
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList();
           if (items.isEmpty) {
             return const Center(child: Text('Aucune donnée'));
           }
@@ -176,7 +176,7 @@ class TableEntityCardWidget extends BaseCardWidget {
           final visibleColumns = tableCard.columns
               .where((column) => column['visible'] == true)
               .toList();
-          
+
           if (visibleColumns.isEmpty) {
             return const Center(child: Text('No visible columns'));
           }
@@ -230,7 +230,8 @@ class TableEntityCardWidget extends BaseCardWidget {
                                         Align(
                                           alignment: _getAlignment(
                                               column['alignment'] as String?),
-                                          child: _buildCellContent(context, row[column['key']], column),
+                                          child: _buildCellContent(context,
+                                              row[column['key']], column),
                                         ),
                                       ))
                                   .toList(),
@@ -343,52 +344,178 @@ class TableEntityCardWidget extends BaseCardWidget {
     if (config.query != null) {
       return columns != null && columns.isNotEmpty;
     }
-    
+
     // Sinon, vérifier si c'est une configuration d'entité
-    return config.context != null && 
-           config.entity != null && 
-           columns != null && 
-           columns.isNotEmpty;
+    return config.context != null &&
+        config.entity != null &&
+        columns != null &&
+        columns.isNotEmpty;
   }
 
-  Widget _buildCellContent(BuildContext context, dynamic value, Map<String, dynamic> column) {
+  bool _isJpegHeader(Uint8List bytes) {
+    if (bytes.length < 3) return false;
+    return bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF;
+  }
+
+  bool _isPngHeader(Uint8List bytes) {
+    if (bytes.length < 8) return false;
+    return bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47 &&
+        bytes[4] == 0x0D &&
+        bytes[5] == 0x0A &&
+        bytes[6] == 0x1A &&
+        bytes[7] == 0x0A;
+  }
+
+  Uint8List _addJpegHeader(Uint8List bytes) {
+    var header = Uint8List.fromList([
+      0xFF,
+      0xD8,
+      0xFF,
+      0xE0,
+      0x00,
+      0x10,
+      0x4A,
+      0x46,
+      0x49,
+      0x46,
+      0x00,
+      0x01,
+      0x01,
+      0x00,
+      0x00,
+      0x01,
+      0x00,
+      0x01,
+      0x00,
+      0x00
+    ]);
+    var result = Uint8List(header.length + bytes.length);
+    result.setAll(0, header);
+    result.setAll(header.length, bytes);
+    return result;
+  }
+
+  bool _isBmpHeader(Uint8List bytes) {
+    if (bytes.length < 2) return false;
+    return bytes[0] == 0x42 && bytes[1] == 0x4D; // 'BM' en ASCII
+  }
+
+  Uint8List? _extractImageFromOLE(Uint8List oleData) {
+    try {
+      // Recherche des signatures d'en-tête d'image courantes dans les données OLE
+      // JPEG: FF D8 FF
+      // PNG: 89 50 4E 47
+      // BMP: 42 4D (BM en ASCII)
+      for (var i = 0; i < oleData.length - 3; i++) {
+        // Vérifier l'en-tête BMP
+        if (i < oleData.length - 2 &&
+            oleData[i] == 0x42 &&
+            oleData[i + 1] == 0x4D) {
+          debugPrint('En-tête BMP trouvé à la position $i');
+          return Uint8List.fromList(oleData.sublist(i));
+        }
+        // Vérifier l'en-tête JPEG
+        if (oleData[i] == 0xFF &&
+            oleData[i + 1] == 0xD8 &&
+            oleData[i + 2] == 0xFF) {
+          debugPrint('En-tête JPEG trouvé à la position $i');
+          return Uint8List.fromList(oleData.sublist(i));
+        }
+        // Vérifier l'en-tête PNG
+        if (i < oleData.length - 8 &&
+            oleData[i] == 0x89 &&
+            oleData[i + 1] == 0x50 &&
+            oleData[i + 2] == 0x4E &&
+            oleData[i + 3] == 0x47 &&
+            oleData[i + 4] == 0x0D &&
+            oleData[i + 5] == 0x0A &&
+            oleData[i + 6] == 0x1A &&
+            oleData[i + 7] == 0x0A) {
+          debugPrint('En-tête PNG trouvé à la position $i');
+          return Uint8List.fromList(oleData.sublist(i));
+        }
+      }
+
+      // Si aucun en-tête n'est trouvé, afficher les premiers octets pour le débogage
+      if (oleData.length > 0) {
+        debugPrint(
+            'Premiers octets des données: [${oleData.take(20).map((b) => '0x${b.toRadixString(16).padLeft(2, '0')}').join(' ')}]');
+      }
+
+      debugPrint('Aucun en-tête d\'image trouvé dans les données OLE');
+      return null;
+    } catch (e) {
+      debugPrint(
+          'Erreur lors de l\'extraction de l\'image des données OLE: $e');
+      return null;
+    }
+  }
+
+  Widget _buildCellContent(
+      BuildContext context, dynamic value, Map<String, dynamic> column) {
     if (value == null) return const Text('');
-    
+
     final type = _getPropertyType(column['key']);
     if (['Byte[]', 'byte[]'].contains(type)) {
       final byteArrayType = column['byteArrayType'] ?? 'Raw';
       if (byteArrayType == 'Image') {
-        Uint8List bytes;
-        if (value is String) {
-          // Si les données sont en base64
-          bytes = base64Decode(value);
-        } else if (value is List) {
-          // Si les données sont déjà en bytes
-          bytes = Uint8List.fromList(value.cast<int>());
-        } else {
-          return const Text('Invalid image data');
-        }
-        
-        return Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey),
-          ),
-          child: InkWell(
-            onTap: () => _showFullImage(context, bytes),
-            child: Image.memory(
-              bytes,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return const Center(child: Icon(Icons.broken_image));
-              },
+        Uint8List? bytes;
+        try {
+          if (value is String) {
+            // Supprimer les caractères non-base64 potentiels
+            final cleanBase64 =
+                value.replaceAll(RegExp(r'[^A-Za-z0-9+/=]'), '');
+            bytes = base64Decode(cleanBase64);
+          } else if (value is List) {
+            bytes = Uint8List.fromList(value.cast<int>());
+          } else {
+            debugPrint(
+                'Type de données non supporté pour l\'image: ${value.runtimeType}');
+            return const Text('Invalid image data type');
+          }
+
+          if (bytes == null || bytes.isEmpty) {
+            debugPrint('Données d\'image vides');
+            return const Text('Empty image data');
+          }
+
+          // Essayer d'extraire l'image des données OLE
+          final imageBytes = _extractImageFromOLE(bytes);
+          if (imageBytes == null) {
+            debugPrint('Impossible d\'extraire l\'image des données OLE');
+            return const Text('Invalid OLE image data');
+          }
+
+          return Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey),
             ),
-          ),
-        );
+            child: InkWell(
+              onTap: () => _showFullImage(context, imageBytes),
+              child: Image.memory(
+                imageBytes,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  debugPrint('Erreur de chargement de l\'image: $error');
+                  debugPrint(
+                      'Premiers octets: [${imageBytes.take(10).map((b) => '0x${b.toRadixString(16).padLeft(2, '0')}').join(' ')}]');
+                  return const Center(child: Icon(Icons.broken_image));
+                },
+              ),
+            ),
+          );
+        } catch (e) {
+          debugPrint('Erreur lors de la conversion des données en image: $e');
+          return const Text('Error loading image');
+        }
       }
     }
-    
+
     return Text(DataFormatter.format(
       value,
       type,
