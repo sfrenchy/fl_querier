@@ -139,12 +139,22 @@ class _SettingServicesScreenState extends State<SettingServicesScreen> {
           IconButton(
             icon: const Icon(Icons.save),
             onPressed: () async {
-              if (_apiFormKey.currentState!.validate() &&
-                  _formKey.currentState!.validate()) {
-                // Déclencher onSaveValues du SmtpConfigurationForm pour mettre à jour les valeurs
-                final smtpForm = _formKey.currentState as FormState;
-                smtpForm.save(); // Ceci va déclencher onSaveValues
+              bool isValid = true;
 
+              // Valider le formulaire API si il est initialisé
+              if (_apiFormKey.currentState != null) {
+                isValid = isValid && _apiFormKey.currentState!.validate();
+              }
+
+              // Valider le formulaire SMTP si il est initialisé
+              if (_formKey.currentState != null) {
+                isValid = isValid && _formKey.currentState!.validate();
+                if (isValid) {
+                  _formKey.currentState!.save();
+                }
+              }
+
+              if (isValid) {
                 try {
                   final config = ApiConfiguration(
                     scheme: _selectedProtocol,
