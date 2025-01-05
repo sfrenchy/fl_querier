@@ -39,6 +39,15 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  void updateFromAuthResponse(Map<String, dynamic> authResponse) {
+    _token = authResponse['Token'];
+    _userRoles = List<String>.from(authResponse['Roles'] ?? []);
+    _userEmail = authResponse['Email'];
+    _firstName = authResponse['FirstName'];
+    _lastName = authResponse['LastName'];
+    notifyListeners();
+  }
+
   Future<void> signOut() async {
     try {
       await _apiClient.signOut();

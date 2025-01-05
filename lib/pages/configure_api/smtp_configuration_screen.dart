@@ -4,6 +4,8 @@ import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'smtp_configuration_bloc.dart';
 import 'package:querier/api/api_client.dart';
 import 'package:querier/widgets/smtp_configuration_form.dart';
+import 'package:querier/providers/auth_provider.dart';
+import 'package:querier/blocs/menu_bloc.dart';
 
 class SMTPConfigurationScreen extends StatefulWidget {
   final String adminName;
@@ -59,6 +61,16 @@ class _SMTPConfigurationScreenState extends State<SMTPConfigurationScreen> {
             context.read<ApiClient>().setAuthToken(token);
             await context.read<ApiClient>().storeRefreshToken(refreshToken);
 
+            // Update auth provider with user info and roles
+            if (!context.mounted) return;
+            final authProvider = context.read<AuthProvider>();
+            authProvider.updateFromAuthResponse(state.authResponse);
+
+            // Load menu
+            if (!context.mounted) return;
+            context.read<MenuBloc>().add(LoadMenu());
+
+            if (!context.mounted) return;
             Navigator.of(context).pushNamedAndRemoveUntil(
               '/home',
               (route) => false,
