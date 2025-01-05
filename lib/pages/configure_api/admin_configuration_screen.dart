@@ -65,7 +65,7 @@ class _AdminConfigurationScreenState extends State<AdminConfigurationScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => SMTPConfigurationScreen(
+                builder: (context) => SmtpConfigurationScreen(
                   adminName: _nameController.text,
                   adminFirstName: _firstNameController.text,
                   adminEmail: _emailController.text,
@@ -120,7 +120,8 @@ class _AdminConfigurationScreenState extends State<AdminConfigurationScreen> {
                                 labelText: l10n.email,
                                 border: const OutlineInputBorder(),
                                 errorText: _emailController.text.isNotEmpty &&
-                                        !Validators.isValidEmail(_emailController.text)
+                                        !Validators.isValidEmail(
+                                            _emailController.text)
                                     ? l10n.validEmail
                                     : null,
                               ),
@@ -140,25 +141,31 @@ class _AdminConfigurationScreenState extends State<AdminConfigurationScreen> {
                               ),
                               validator: (value) =>
                                   Validators.getPasswordError(value ?? ''),
-                              autovalidateMode: AutovalidateMode.onUserInteraction,
+                              autovalidateMode:
+                                  AutovalidateMode.onUserInteraction,
                             ),
                             const SizedBox(height: 16),
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
-                                onPressed:
-                                    (state is! AdminConfigurationLoading && _isFormValid)
-                                        ? () {
-                                            context.read<AdminConfigurationBloc>().add(
-                                                  SubmitConfigurationEvent(
-                                                    name: _nameController.text,
-                                                    firstName: _firstNameController.text,
-                                                    email: _emailController.text,
-                                                    password: _passwordController.text,
-                                                  ),
-                                                );
-                                          }
-                                        : null,
+                                onPressed: (state
+                                            is! AdminConfigurationLoading &&
+                                        _isFormValid)
+                                    ? () {
+                                        context
+                                            .read<AdminConfigurationBloc>()
+                                            .add(
+                                              SubmitConfigurationEvent(
+                                                name: _nameController.text,
+                                                firstName:
+                                                    _firstNameController.text,
+                                                email: _emailController.text,
+                                                password:
+                                                    _passwordController.text,
+                                              ),
+                                            );
+                                      }
+                                    : null,
                                 child: state is AdminConfigurationLoading
                                     ? const CircularProgressIndicator()
                                     : Text(l10n.next),
