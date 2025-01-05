@@ -38,4 +38,29 @@ class WizardService {
       throw Exception('Failed to setup: ${e.toString()}');
     }
   }
+
+  Future<bool> testSmtp({
+    required String host,
+    required int port,
+    required String username,
+    required String password,
+    required bool useSsl,
+    required String senderEmail,
+    required String senderName,
+  }) async {
+    try {
+      return await _apiClient.testSmtpConfiguration(
+        host: host,
+        port: port,
+        username: username,
+        password: password,
+        useSSL: useSsl,
+        senderEmail: senderEmail,
+        senderName: senderName,
+        requireAuth: username.isNotEmpty,
+      );
+    } catch (e) {
+      throw Exception('Failed to test SMTP: ${e.toString()}');
+    }
+  }
 }

@@ -1,68 +1,100 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-import 'smtp_configuration_bloc.dart';
-import 'package:querier/api/api_client.dart';
+import 'package:querier/blocs/menu_bloc.dart';
+import 'package:querier/pages/configure_api/smtp_configuration_bloc.dart';
+import 'package:querier/providers/auth_provider.dart';
 import 'package:querier/widgets/smtp_configuration_form.dart';
 
-class SMTPConfigurationScreen extends StatefulWidget {
+class SmtpConfigurationScreen extends StatefulWidget {
+  final String apiUrl;
   final String adminName;
   final String adminFirstName;
   final String adminEmail;
   final String adminPassword;
-  final String apiUrl;
 
-  const SMTPConfigurationScreen({
+  const SmtpConfigurationScreen({
     super.key,
+    required this.apiUrl,
     required this.adminName,
     required this.adminFirstName,
     required this.adminEmail,
     required this.adminPassword,
-    required this.apiUrl,
   });
 
   @override
-  State<SMTPConfigurationScreen> createState() =>
-      _SMTPConfigurationScreenState();
+  State<SmtpConfigurationScreen> createState() =>
+      _SmtpConfigurationScreenState();
 }
 
-class _SMTPConfigurationScreenState extends State<SMTPConfigurationScreen> {
+class _SmtpConfigurationScreenState extends State<SmtpConfigurationScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _formStateKey = GlobalKey<SmtpConfigurationFormState>();
+  bool _isLoading = false;
+  bool? _testSuccess;
+  String? _testError;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
     return BlocProvider(
-      create: (context) =>
-          SmtpConfigurationBloc(widget.apiUrl, Navigator.of(context)),
+      create: (context) => SmtpConfigurationBloc(
+        widget.apiUrl,
+        Navigator.of(context),
+      ),
       child: BlocConsumer<SmtpConfigurationBloc, SmtpConfigurationState>(
-        listener: (context, state) async {
-          if (state is SmtpConfigurationSuccess) {
-            Navigator.pushReplacementNamed(context, '/home');
-          } else if (state is SmtpConfigurationFailure) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.error)),
-            );
-          } else if (state is SmtpTestSuccess) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(l10n.connectionSuccess)),
-            );
-          } else if (state is SmtpTestFailure) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(l10n.connectionFailed)),
-            );
-          } else if (state is SmtpConfigurationSuccessWithAuth) {
-            final token = state.authResponse['Token'];
-            final refreshToken = state.authResponse['RefreshToken'];
+        listener: (context, state) {
+          if (state is SmtpConfigurationLoading || state is SmtpTestLoading) {
+            setState(() {
+              _isLoading = true;
+            });
+          } else {
+            setState(() {
+              _isLoading = false;
+            });
 
-            context.read<ApiClient>().setAuthToken(token);
-            await context.read<ApiClient>().storeRefreshToken(refreshToken);
-
-            Navigator.of(context).pushNamedAndRemoveUntil(
-              '/home',
-              (route) => false,
-            );
+            if (state is SmtpConfigurationSuccess) {
+              Navigator.of(context).pushReplacementNamed('/home');
+            } else if (state is SmtpConfigurationSuccessWithAuth) {
+              final authProvider = context.read<AuthProvider>();
+              authProvider.updateFromAuthResponse(state.authResponse);
+              Future.delayed(const Duration(milliseconds: 100), () {
+                if (mounted) {
+                  context.read<MenuBloc>().add(LoadMenu());
+                  Navigator.of(context).pushReplacementNamed('/home');
+                }
+              });
+            } else if (state is SmtpConfigurationFailure) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.error),
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+              );
+            } else if (state is SmtpTestSuccess) {
+              setState(() {
+                _testSuccess = true;
+                _testError = null;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(l10n.connectionSuccess),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                ),
+              );
+            } else if (state is SmtpTestFailure) {
+              setState(() {
+                _testSuccess = false;
+                _testError = state.error;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.error),
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+              );
+            }
           }
         },
         builder: (context, state) {
@@ -71,66 +103,66 @@ class _SMTPConfigurationScreenState extends State<SMTPConfigurationScreen> {
               title: Text(l10n.smtpConfiguration),
               actions: [
                 IconButton(
-                  tooltip: l10n.save,
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      _formKey.currentState!.save();
-                    }
-                  },
                   icon: const Icon(Icons.save),
+                  onPressed: _isLoading
+                      ? null
+                      : () {
+                          if (_formKey.currentState!.validate()) {
+                            setState(() {
+                              _testSuccess = null;
+                              _testError = null;
+                            });
+                            _formStateKey.currentState?.getValues((host,
+                                port,
+                                username,
+                                password,
+                                useSSL,
+                                senderEmail,
+                                senderName,
+                                requireAuth) {
+                              context.read<SmtpConfigurationBloc>().add(
+                                    SubmitSmtpConfigurationEvent(
+                                      adminName: widget.adminName,
+                                      adminFirstName: widget.adminFirstName,
+                                      adminEmail: widget.adminEmail,
+                                      adminPassword: widget.adminPassword,
+                                      apiUrl: widget.apiUrl,
+                                      host: host,
+                                      port: port,
+                                      username: username,
+                                      password: password,
+                                      useSSL: useSSL,
+                                      senderEmail: senderEmail,
+                                      senderName: senderName,
+                                      requireAuth: requireAuth,
+                                    ),
+                                  );
+                            });
+                          }
+                        },
                 ),
-                IconButton(
-                  tooltip: l10n.testConnection,
-                  onPressed: () {
-                    context
-                        .read<SmtpConfigurationBloc>()
-                        .add(TestSmtpConfigurationEvent(
-                          host: '', // TODO: Get values from form
-                          port: 0,
-                          username: '',
-                          password: '',
-                          senderEmail: '',
-                          senderName: '',
-                          useSsl: true,
-                        ));
-                  },
-                  icon: const Icon(Icons.send_outlined),
-                ),
-                const SizedBox(width: 8),
               ],
             ),
-            body: Padding(
+            body: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Center(
-                child: SingleChildScrollView(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 400),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 400,
+                    minHeight: 600,
+                  ),
+                  child: Center(
                     child: Card(
                       elevation: 4,
                       child: Padding(
                         padding: const EdgeInsets.all(24.0),
                         child: SmtpConfigurationForm(
+                          key: _formStateKey,
                           formKey: _formKey,
-                          onSaveValues: (host, port, username, password, useSSL,
-                              senderEmail, senderName, requireAuth) {
-                            context.read<SmtpConfigurationBloc>().add(
-                                  SubmitSmtpConfigurationEvent(
-                                    adminName: widget.adminName,
-                                    adminFirstName: widget.adminFirstName,
-                                    adminEmail: widget.adminEmail,
-                                    adminPassword: widget.adminPassword,
-                                    apiUrl: widget.apiUrl,
-                                    host: host,
-                                    port: port,
-                                    username: username,
-                                    password: password,
-                                    useSSL: useSSL,
-                                    senderEmail: senderEmail,
-                                    senderName: senderName,
-                                    requireAuth: requireAuth,
-                                  ),
-                                );
-                          },
+                          testSuccess: _testSuccess,
+                          testError: _testError,
+                          onSaveValues: (_, __, ___, ____, _____, ______,
+                              _______, ________) {},
                         ),
                       ),
                     ),

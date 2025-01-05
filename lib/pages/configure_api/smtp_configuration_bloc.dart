@@ -19,6 +19,23 @@ class SmtpConfigurationBloc
     on<SubmitSmtpConfigurationEvent>((event, emit) async {
       emit(SmtpConfigurationLoading());
       try {
+        // Test SMTP configuration first
+        final testSuccess = await _wizardService.testSmtp(
+          host: event.host,
+          port: event.port,
+          username: event.username,
+          password: event.password,
+          useSsl: event.useSSL,
+          senderEmail: event.senderEmail,
+          senderName: event.senderName,
+        );
+
+        if (!testSuccess) {
+          emit(SmtpConfigurationFailure(
+              'SMTP test failed. Please check your configuration.'));
+          return;
+        }
+
         final success = await _wizardService.setup(
           name: event.adminName,
           firstName: event.adminFirstName,
@@ -53,6 +70,29 @@ class SmtpConfigurationBloc
         }
       } catch (e) {
         emit(SmtpConfigurationFailure(e.toString()));
+      }
+    });
+
+    on<TestSmtpConfigurationEvent>((event, emit) async {
+      emit(SmtpTestLoading());
+      try {
+        final success = await _wizardService.testSmtp(
+          host: event.host,
+          port: event.port,
+          username: event.username,
+          password: event.password,
+          useSsl: event.useSsl,
+          senderEmail: event.senderEmail,
+          senderName: event.senderName,
+        );
+
+        if (success) {
+          emit(SmtpTestSuccess());
+        } else {
+          emit(SmtpTestFailure('SMTP test failed'));
+        }
+      } catch (e) {
+        emit(SmtpTestFailure(e.toString()));
       }
     });
   }

@@ -134,6 +134,37 @@ class ApiClient {
     return response.statusCode == 200;
   }
 
+  Future<bool> testSmtpConfiguration({
+    required String host,
+    required int port,
+    required String username,
+    required String password,
+    required bool useSSL,
+    required String senderEmail,
+    required String senderName,
+    required bool requireAuth,
+  }) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.buildUrl(baseUrl, ApiEndpoints.smtpTest),
+        data: {
+          'host': host,
+          'port': port,
+          'username': username,
+          'password': password,
+          'useSSL': useSSL,
+          'senderEmail': senderEmail,
+          'senderName': senderName,
+          'requireAuth': requireAuth,
+        },
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error testing SMTP configuration: $e');
+      return false;
+    }
+  }
+
   // User methods
   Future<Response> getCurrentUser() async {
     return _dio.get(ApiEndpoints.buildUrl(baseUrl, ApiEndpoints.currentUser));
@@ -400,7 +431,8 @@ class ApiClient {
     return response;
   }
 
-  Future<Response> get(String endpoint, {Map<String, dynamic>? queryParameters}) async {
+  Future<Response> get(String endpoint,
+      {Map<String, dynamic>? queryParameters}) async {
     final response = await _dio.get(
       ApiEndpoints.buildUrl(baseUrl, endpoint),
       queryParameters: queryParameters,
@@ -875,10 +907,7 @@ class ApiClient {
     );
 
     final response = await _dio.post(
-      ApiEndpoints.buildUrl(
-        baseUrl,
-        'SQLQuery/${query.id}/execute'
-      ),
+      ApiEndpoints.buildUrl(baseUrl, 'SQLQuery/${query.id}/execute'),
       queryParameters: {
         'pageNumber': pageNumber,
         'pageSize': pageSize,

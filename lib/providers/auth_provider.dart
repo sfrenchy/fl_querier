@@ -28,6 +28,9 @@ class AuthProvider extends ChangeNotifier {
         _userEmail = email;
         _firstName = response.data['FirstName'];
         _lastName = response.data['LastName'];
+        if (_token != null) {
+          _apiClient.setAuthToken(_token!);
+        }
         notifyListeners();
         return true;
       }
@@ -39,6 +42,18 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  void updateFromAuthResponse(Map<String, dynamic> authResponse) {
+    _token = authResponse['Token'];
+    _userRoles = List<String>.from(authResponse['Roles'] ?? []);
+    _userEmail = authResponse['Email'];
+    _firstName = authResponse['FirstName'];
+    _lastName = authResponse['LastName'];
+    if (_token != null) {
+      _apiClient.setAuthToken(_token!);
+    }
+    notifyListeners();
+  }
+
   Future<void> signOut() async {
     try {
       await _apiClient.signOut();
@@ -46,6 +61,7 @@ class AuthProvider extends ChangeNotifier {
       _token = null;
       _userRoles = [];
       _userEmail = null;
+      _apiClient.clearAuthToken();
       notifyListeners();
     }
   }
@@ -53,6 +69,9 @@ class AuthProvider extends ChangeNotifier {
   void updateToken(String newToken, List<String> roles) {
     _token = newToken;
     _userRoles = roles;
+    if (_token != null) {
+      _apiClient.setAuthToken(_token!);
+    }
     notifyListeners();
   }
 }

@@ -112,4 +112,7 @@ class ApiEndpoints {
   static const String sqlQueries = 'SQLQuery';
   static const String sqlQuery = 'SQLQuery/{id}';
   static const String executeSqlQuery = 'SQLQuery/{id}/execute';
+
+  // SMTP Controller
+  static const String smtpTest = 'smtp/test';
 }
