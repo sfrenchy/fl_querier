@@ -39,3 +39,46 @@ class DBConnection {
     );
   }
 }
+
+class QDBConnectionResponse {
+  final int id;
+  final String name;
+  final String connectionType;
+  final String apiRoute;
+
+  QDBConnectionResponse({
+    required this.id,
+    required this.name,
+    required this.connectionType,
+    required this.apiRoute,
+  });
+
+  factory QDBConnectionResponse.fromJson(Map<String, dynamic> json) {
+    return QDBConnectionResponse(
+      id: json['id'] as int,
+      name: json['name'] as String,
+      connectionType: json['connectionType'] as String,
+      apiRoute: json['apiRoute'] as String,
+    );
+  }
+}
+
+class ControllerInfoResponse {
+  final String name;
+  final String route;
+  final String? httpGetJsonSchema;
+
+  ControllerInfoResponse({
+    required this.name,
+    required this.route,
+    this.httpGetJsonSchema,
+  });
+
+  factory ControllerInfoResponse.fromJson(Map<String, dynamic> json) {
+    return ControllerInfoResponse(
+      name: json['Name'] as String,
+      route: json['Route'] as String,
+      httpGetJsonSchema: json['HttpGetJsonSchema'] as String?,
+    );
+  }
+}

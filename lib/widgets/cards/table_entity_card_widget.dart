@@ -73,6 +73,51 @@ class TableEntityCardWidget extends BaseCardWidget {
       orderBy: _sortColumn ?? "",
     );
 
+    if (config.type == DataSourceType.api) {
+      try {
+        // Si on n'a pas de schéma JSON, on crée les colonnes à partir des données
+        if (card.columns.isEmpty) {
+          if (config.controller?.httpGetJsonSchema != null) {
+            final jsonSchema =
+                jsonDecode(config.controller!.httpGetJsonSchema!);
+            if (jsonSchema['properties']?['items']?['items']?['properties'] !=
+                null) {
+              final properties = jsonSchema['properties']['items']['items']
+                  ['properties'] as Map<String, dynamic>;
+              card.columns = properties.entries
+                  .map((entry) => {
+                        'key': entry.key,
+                        'type': _convertJsonSchemaTypeToEntityType(
+                            entry.value['type'] as String),
+                        'label': {'en': entry.key, 'fr': entry.key},
+                        'alignment': _getDefaultAlignment(
+                            _convertJsonSchemaTypeToEntityType(
+                                entry.value['type'] as String)),
+                        'visible': true,
+                      })
+                  .toList();
+            }
+          } else if (result.$1.isNotEmpty) {
+            // Créer les colonnes à partir du premier élément des données
+            final firstItem = result.$1.first as Map<String, dynamic>;
+            card.columns = firstItem.entries
+                .map((entry) => {
+                      'key': entry.key,
+                      'type': _inferTypeFromValue(entry.value),
+                      'label': {'en': entry.key, 'fr': entry.key},
+                      'alignment': _getDefaultAlignment(
+                          _inferTypeFromValue(entry.value)),
+                      'visible': true,
+                    })
+                .toList();
+          }
+        }
+      } catch (e) {
+        debugPrint(
+            'Erreur lors du parsing du schéma JSON ou de la création des colonnes: $e');
+      }
+    }
+
     // Mettre en cache les données
     _dataCache[page] = (result.$1 as List)
         .map((item) => Map<String, dynamic>.from(item))
@@ -81,6 +126,32 @@ class TableEntityCardWidget extends BaseCardWidget {
 
     _paginationController.add((page, result.$2));
     _dataController.add(result);
+  }
+
+  String _convertJsonSchemaTypeToEntityType(String jsonType) {
+    switch (jsonType) {
+      case 'string':
+        return 'String';
+      case 'integer':
+        return 'Int32';
+      case 'number':
+        return 'Double';
+      case 'boolean':
+        return 'Boolean';
+      case 'array':
+        return 'Array';
+      default:
+        return 'String';
+    }
+  }
+
+  String _inferTypeFromValue(dynamic value) {
+    if (value == null) return 'String';
+    if (value is int) return 'Int32';
+    if (value is double) return 'Double';
+    if (value is bool) return 'Boolean';
+    if (value is List) return 'Array';
+    return 'String';
   }
 
   void clearCache() {
@@ -340,16 +411,23 @@ class TableEntityCardWidget extends BaseCardWidget {
     debugPrint('- Query: ${config.query}');
     debugPrint('- Columns: ${columns?.length ?? 0}');
 
-    // Vérifier si c'est une configuration de requête
-    if (config.query != null) {
-      return columns != null && columns.isNotEmpty;
+    // Vérifier si les colonnes sont définies
+    if (columns == null || columns.isEmpty) {
+      return false;
     }
 
-    // Sinon, vérifier si c'est une configuration d'entité
-    return config.context != null &&
-        config.entity != null &&
-        columns != null &&
-        columns.isNotEmpty;
+    // Vérifier selon le type de source de données
+    switch (config.type) {
+      case DataSourceType.api:
+        return config.selectedDbConnectionId != null &&
+            config.selectedController != null;
+      case DataSourceType.query:
+        return config.query != null;
+      case DataSourceType.entity:
+        return config.context != null && config.entity != null;
+      default:
+        return false;
+    }
   }
 
   bool _isJpegHeader(Uint8List bytes) {

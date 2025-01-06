@@ -293,5 +293,7 @@
     "byteArrayType": "Byte Array Type",
     "@byteArrayType": {
         "description": "Label for byte array type selector"
-    }
+    },
+    "dbConnection": "Database Connection",
+    "controller": "Controller"
 } 
