@@ -37,6 +37,8 @@ class ApiEndpoints {
   static const String updateDbConnection = 'dbconnection/{id}';
   static const String dbConnectionSchema =
       '/dbconnection/{connectionId}/schema';
+  static const String dbConnectionControllers =
+      '/dbconnection/{id}/controllers';
   static const String analyzeQuery =
       '/dbconnection/{connectionId}/analyze-query';
 
@@ -74,6 +76,11 @@ class ApiEndpoints {
 
   // Helper Methods
   static String buildUrl(String baseUrl, String endpoint) {
+    if (endpoint.startsWith('api/v1/')) {
+      final baseUrlWithoutApi = baseUrl.replaceAll(RegExp(r'/api/v1/?$'), '');
+      return '$baseUrlWithoutApi/$endpoint';
+    }
+
     final cleanBaseUrl = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
         : baseUrl;

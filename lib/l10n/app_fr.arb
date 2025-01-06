@@ -292,5 +292,7 @@
     "byteArrayType": "Type de tableau d'octets",
     "@byteArrayType": {
         "description": "Label for byte array type selector"
-    }
+    },
+    "dbConnection": "Connexion à la base de données",
+    "controller": "Contrôleur"
 } 

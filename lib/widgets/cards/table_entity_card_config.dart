@@ -33,22 +33,21 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
   @override
   void initState() {
     super.initState();
-    _dataSourceConfig = DataSourceConfiguration.fromJson(widget.card.configuration);
-    
+    _dataSourceConfig =
+        DataSourceConfiguration.fromJson(widget.card.configuration);
+
     // Charger les colonnes si elles existent déjà dans la configuration
     final existingColumns = widget.card.configuration['columns'] as List?;
     if (existingColumns != null) {
       setState(() {
-        _selectedColumns = List<Map<String, dynamic>>.from(existingColumns.map((col) {
+        _selectedColumns =
+            List<Map<String, dynamic>>.from(existingColumns.map((col) {
           // S'assurer que le label est une Map<String, String> valide
           Map<String, String> label;
           if (col['label'] is Map) {
             label = Map<String, String>.from(col['label'] as Map);
           } else {
-            label = {
-              'en': col['key'].toString(),
-              'fr': col['key'].toString()
-            };
+            label = {'en': col['key'].toString(), 'fr': col['key'].toString()};
           }
 
           return {
@@ -72,7 +71,8 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
     if (_dataSourceConfig.entitySchema != null) {
       final existingColumns = widget.card.configuration['columns'] as List?;
       setState(() {
-        _selectedColumns = _dataSourceConfig.entitySchema!.properties.map((prop) {
+        _selectedColumns =
+            _dataSourceConfig.entitySchema!.properties.map((prop) {
           Map<String, dynamic>? existingColumn;
           if (existingColumns != null) {
             try {
@@ -85,19 +85,23 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
           }
 
           // S'assurer que label est toujours une Map valide
-          Map<String, dynamic> label = existingColumn?['label'] ?? {
-            'en': prop.name,
-            'fr': prop.name,
-          };
+          Map<String, dynamic> label = existingColumn?['label'] ??
+              {
+                'en': prop.name,
+                'fr': prop.name,
+              };
 
           return {
             'key': prop.name,
             'type': prop.type,
             'label': label,
-            'alignment': existingColumn?['alignment'] ?? _getDefaultAlignment(prop.type),
+            'alignment':
+                existingColumn?['alignment'] ?? _getDefaultAlignment(prop.type),
             'visible': existingColumn?['visible'] ?? true,
-            'decimals': existingColumn?['decimals'] ?? (_isNumericType(prop.type) ? 0 : null),
-            'byteArrayType': existingColumn?['byteArrayType'] ?? (_isByteArrayType(prop.type) ? 'Raw' : null),
+            'decimals': existingColumn?['decimals'] ??
+                (_isNumericType(prop.type) ? 0 : null),
+            'byteArrayType': existingColumn?['byteArrayType'] ??
+                (_isByteArrayType(prop.type) ? 'Raw' : null),
           };
         }).toList();
       });
@@ -138,12 +142,13 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
   }
 
   void _updateColumnConfiguration() {
-    Map<String, dynamic> newConfig = Map<String, dynamic>.from(widget.card.configuration);
-    
+    Map<String, dynamic> newConfig =
+        Map<String, dynamic>.from(widget.card.configuration);
+
     newConfig['columns'] = _selectedColumns.map((col) {
       // S'assurer que le label est une Map<String, String>
       Map<String, String> label = Map<String, String>.from(col['label'] as Map);
-      
+
       return {
         'key': col['key'],
         'label': label,
@@ -161,55 +166,105 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
   void _onDataSourceConfigurationChanged(DataSourceConfiguration config) {
     debugPrint('Configuration: ${config.toJson()}');
     debugPrint('EntitySchema: ${config.entitySchema}');
-    
+
     setState(() {
       _dataSourceConfig = config;
-      if (config.entitySchema != null) {
-        final existingColumns = _selectedColumns; // Utiliser les colonnes déjà chargées
-        
-        _selectedColumns = config.entitySchema!.properties.map((p) {
-          Map<String, dynamic>? existingColumn;
-          if (_selectedColumns.isNotEmpty) {
-            try {
-              existingColumn = _selectedColumns.firstWhere(
-                (c) => c['key'] == p.name,
-              );
-            } catch (_) {
-              existingColumn = null;
-            }
-          }
-
-          // S'assurer que label est toujours une Map valide
-          Map<String, dynamic> label = existingColumn?['label'] ?? {
-            'en': p.name,
-            'fr': p.name,
-          };
-
-          return {
-            'key': p.name,
-            'label': label,
-            'type': p.type,
-            'alignment': existingColumn?['alignment'] ?? _getDefaultAlignment(p.type),
-            'visible': existingColumn?['visible'] ?? true,
-            'decimals': existingColumn?['decimals'] ?? (_isNumericType(p.type) ? 0 : null),
-            'byteArrayType': existingColumn?['byteArrayType'] ?? (_isByteArrayType(p.type) ? 'Raw' : null),
-          };
-        }).toList();
-
-        final newConfig = Map<String, dynamic>.from(widget.card.configuration);
-        newConfig['dataSource'] = config.toJson()['dataSource'];
-        newConfig['columns'] = _selectedColumns.map((col) => {
-          'key': col['key'],
-          'label': col['label'],
-          'type': col['type'],
-          'alignment': col['alignment'],
-          'visible': col['visible'],
-          'decimals': col['decimals'],
-          'byteArrayType': col['byteArrayType'],
-        }).toList();
-        widget.onConfigurationChanged(newConfig);
-      }
     });
+
+    if (config.type == DataSourceType.api &&
+        config.controller?.httpGetJsonSchema != null) {
+      try {
+        final jsonSchema = jsonDecode(config.controller!.httpGetJsonSchema!);
+        if (jsonSchema['properties']?['items']?['items']?['properties'] !=
+            null) {
+          final properties = jsonSchema['properties']['items']['items']
+              ['properties'] as Map<String, dynamic>;
+          setState(() {
+            _selectedColumns = properties.entries
+                .map((entry) => {
+                      'key': entry.key,
+                      'type': _convertJsonSchemaTypeToEntityType(
+                          entry.value['type'] as String),
+                      'label': {'en': entry.key, 'fr': entry.key},
+                      'alignment': _getDefaultAlignment(
+                          _convertJsonSchemaTypeToEntityType(
+                              entry.value['type'] as String)),
+                      'visible': true,
+                      'decimals': _isNumericType(
+                              _convertJsonSchemaTypeToEntityType(
+                                  entry.value['type'] as String))
+                          ? 0
+                          : null,
+                    })
+                .toList();
+          });
+
+          final newConfig =
+              Map<String, dynamic>.from(widget.card.configuration);
+          newConfig['dataSource'] = config.toJson()['dataSource'];
+          newConfig['columns'] = _selectedColumns;
+          widget.onConfigurationChanged(newConfig);
+        }
+      } catch (e) {
+        debugPrint('Erreur lors du parsing du schéma JSON: $e');
+      }
+    } else if (config.entitySchema != null) {
+      // Code existant pour les autres types de sources de données
+      final existingColumns = _selectedColumns;
+      _selectedColumns = config.entitySchema!.properties.map((p) {
+        Map<String, dynamic>? existingColumn;
+        if (_selectedColumns.isNotEmpty) {
+          try {
+            existingColumn = _selectedColumns.firstWhere(
+              (c) => c['key'] == p.name,
+            );
+          } catch (_) {
+            existingColumn = null;
+          }
+        }
+
+        Map<String, dynamic> label = existingColumn?['label'] ??
+            {
+              'en': p.name,
+              'fr': p.name,
+            };
+
+        return {
+          'key': p.name,
+          'label': label,
+          'type': p.type,
+          'alignment':
+              existingColumn?['alignment'] ?? _getDefaultAlignment(p.type),
+          'visible': existingColumn?['visible'] ?? true,
+          'decimals': existingColumn?['decimals'] ??
+              (_isNumericType(p.type) ? 0 : null),
+          'byteArrayType': existingColumn?['byteArrayType'] ??
+              (_isByteArrayType(p.type) ? 'Raw' : null),
+        };
+      }).toList();
+
+      final newConfig = Map<String, dynamic>.from(widget.card.configuration);
+      newConfig['dataSource'] = config.toJson()['dataSource'];
+      newConfig['columns'] = _selectedColumns;
+      widget.onConfigurationChanged(newConfig);
+    }
+  }
+
+  String _convertJsonSchemaTypeToEntityType(String jsonType) {
+    switch (jsonType) {
+      case 'string':
+        return 'String';
+      case 'integer':
+        return 'Int32';
+      case 'number':
+        return 'Double';
+      case 'boolean':
+        return 'Boolean';
+      case 'array':
+        return 'Array';
+      default:
+        return 'String';
+    }
   }
 
   void _loadAvailableProperties() {
@@ -282,9 +337,8 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
                     ),
                   ),
                   title: Text(
-                    (column['label'] as Map<String, dynamic>?)?['fr'] ?? 
-                    column['key'] as String
-                  ),
+                      (column['label'] as Map<String, dynamic>?)?['fr'] ??
+                          column['key'] as String),
                   subtitle: Text('Type: ${column['type']}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -297,7 +351,8 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
                   ),
                   onTap: () {
                     setState(() {
-                      _expandedStates[columnKey] = !(_expandedStates[columnKey] ?? false);
+                      _expandedStates[columnKey] =
+                          !(_expandedStates[columnKey] ?? false);
                     });
                   },
                 ),
@@ -375,10 +430,10 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
                                 ),
                                 items: ['Raw', 'Image']
                                     .map((type) => DropdownMenuItem(
-                                        value: type,
-                                        child: Text(type)))
+                                        value: type, child: Text(type)))
                                     .toList(),
-                                onChanged: (value) => _updateByteArrayType(index, value!),
+                                onChanged: (value) =>
+                                    _updateByteArrayType(index, value!),
                               ),
                             ],
                           ),
@@ -398,7 +453,8 @@ class _TableEntityCardConfigState extends State<TableEntityCardConfig> {
     setState(() {
       // S'assurer que la colonne existe
       if (index < _selectedColumns.length) {
-        _selectedColumns[index]['label'] = Map<String, String>.from(newTranslations);
+        _selectedColumns[index]['label'] =
+            Map<String, String>.from(newTranslations);
       }
     });
     _updateColumnConfiguration();

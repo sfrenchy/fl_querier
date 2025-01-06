@@ -457,6 +457,19 @@ class ApiClient {
         .toList();
   }
 
+  Future<List<ControllerInfoResponse>> getDBConnectionControllers(
+      int connectionId) async {
+    final response = await _dio.get(
+      ApiEndpoints.replaceUrlParams(
+        ApiEndpoints.dbConnectionControllers,
+        {'id': connectionId.toString()},
+      ),
+    );
+    return (response.data as List)
+        .map((json) => ControllerInfoResponse.fromJson(json))
+        .toList();
+  }
+
   Future<List<MenuCategory>> getMenuCategories() async {
     final response = await get(ApiEndpoints.menuCategories);
     return (response.data as List<dynamic>)
